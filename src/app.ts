@@ -7,25 +7,6 @@ import { CoinGeckoProvider } from './services/price/providers/CoinGeckoProvider.
 import { PriceService } from './services/price/PriceService.js'
 import { quoteRoutes } from './routes/quote.js'
 
-// Configuration (should be moved to config file in production)
-const config = {
-  uniswap: {
-    apiUrl: process.env.UNISWAP_API_URL || 'https://api.uniswap.org/v1',
-    apiKey: process.env.UNISWAP_API_KEY,
-    cacheDurationMs: 60000,
-  },
-  coingecko: {
-    apiUrl: process.env.COINGECKO_API_URL || 'https://api.coingecko.com/api/v3',
-    apiKey: process.env.COINGECKO_API_KEY,
-    cacheDurationMs: 60000,
-  },
-  priceService: {
-    maxPriceDeviation: 0.01,
-    cacheDurationMs: 60000,
-    minSourcesRequired: 1,
-  },
-}
-
 interface BuildOptions {
   registerRoutes?: boolean
 }
@@ -37,26 +18,35 @@ export async function build(
     logger: true,
   })
 
-  // Register CORS
-  await app.register(cors, {
-    origin: true,
-  })
-
-  // Serve static frontend files
+  // Initialize Fastify plugins
+  await app.register(cors)
   await app.register(fastifyStatic, {
-    root: join(process.cwd(), '..', 'dist', 'public'),
+    root: join(process.cwd(), 'dist/public'),
     prefix: '/',
   })
 
   if (options.registerRoutes) {
     // Initialize price providers
-    const uniswapProvider = new UniswapProvider(config.uniswap)
-    const coingeckoProvider = new CoinGeckoProvider(config.coingecko)
+    const coinGeckoProvider = new CoinGeckoProvider({
+      apiUrl: 'https://pro-api.coingecko.com/api/v3',
+      apiKey: process.env.COINGECKO_API_KEY,
+      cacheDurationMs: 30000,
+    })
+
+    const uniswapProvider = new UniswapProvider({
+      apiUrl: 'https://api.uniswap.org/v1',
+      apiKey: process.env.UNISWAP_API_KEY,
+      cacheDurationMs: 30000,
+    })
 
     // Initialize price service
     const priceService = new PriceService(
-      [uniswapProvider, coingeckoProvider],
-      config.priceService
+      [coinGeckoProvider, uniswapProvider],
+      {
+        minSourcesRequired: 1,
+        cacheDurationMs: 30000,
+        maxPriceDeviation: 0.05, // 5% maximum price deviation
+      }
     )
 
     // Register routes

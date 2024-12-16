@@ -15,7 +15,18 @@ Cross-chain token swap parameter calculation service using The Compact protocol.
 pnpm install
 ```
 
-2. Start development server:
+2. Set up environment variables:
+
+```bash
+cp .env.example .env
+```
+
+Edit the `.env` file and replace the placeholder values:
+
+- `COINGECKO_API_KEY`: Your CoinGecko API key
+- `UNISWAP_API_KEY`: Your Uniswap API key
+
+3. Start development server:
 
 ```bash
 pnpm dev
