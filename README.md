@@ -117,7 +117,7 @@ The project uses Husky with lint-staged for pre-commit checks:
 
 ### Development Workflow
 
-The goal is to make targeted, specific changes while maintaining code quality:
+The goal is to make targeted, specific changes while maintaining code quality and commit them to git (which is already initialized and configured to run pre-commit hooks):
 
 1. **Make Focused Changes**
 
