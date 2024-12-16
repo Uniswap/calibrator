@@ -1,14 +1,13 @@
-import fastify from 'fastify';
-import cors from '@fastify/cors';
-import fastifyStatic from '@fastify/static';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { healthRoutes } from './routes/health';
+import fastify, { FastifyInstance } from 'fastify'
+import cors from '@fastify/cors'
+import fastifyStatic from '@fastify/static'
+import { dirname, join } from 'path'
+import { fileURLToPath } from 'url'
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
 
-const server = fastify({
+const server: FastifyInstance = fastify({
   logger: {
     transport: {
       target: 'pino-pretty',
@@ -18,34 +17,28 @@ const server = fastify({
       },
     },
   },
-});
+})
 
 // Register plugins
-server.register(cors);
+await server.register(cors, {
+  origin: true,
+})
 
-// Register API routes first
-server.register(healthRoutes, { prefix: '/health' });
-
-// Then serve static files from the React app
-server.register(fastifyStatic, {
-  root: path.join(__dirname, '../dist/public'),
+// Serve static frontend files
+await server.register(fastifyStatic, {
+  root: join(__dirname, '..', 'dist', 'public'),
   prefix: '/',
-});
+})
 
-// Finally, add the catch-all route for the SPA
-server.setNotFoundHandler(async (request, reply) => {
-  return reply.sendFile('index.html');
-});
+// Health check endpoint
+server.get('/health', async (_request, _reply) => {
+  return { status: 'ok' }
+})
 
-// Start server
-const start = async () => {
-  try {
-    await server.listen({ port: 3000, host: '0.0.0.0' });
-    server.log.info(`Server listening on ${server.server.address()}`);
-  } catch (err) {
-    server.log.error(err);
-    process.exit(1);
-  }
-};
-
-start();
+try {
+  await server.listen({ port: 3000 })
+  console.log('Server listening on port 3000')
+} catch (err) {
+  server.log.error(err)
+  process.exit(1)
+}

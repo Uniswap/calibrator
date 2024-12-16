@@ -1,0 +1,11 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Run type checking
+pnpm type-check
+
+# Run all tests (both frontend and backend)
+pnpm test:all
+
+# Run lint-staged
+pnpm lint-staged

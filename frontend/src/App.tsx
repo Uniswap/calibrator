@@ -1,4 +1,3 @@
-import React from 'react';
 import { QueryClient, QueryClientProvider } from 'react-query'
 import { useState } from 'react'
 
@@ -21,7 +20,7 @@ function App() {
                   Cross-chain token swap parameter calculation service
                 </p>
                 <button
-                  onClick={() => setCount((count) => count + 1)}
+                  onClick={() => setCount(count => count + 1)}
                   className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
                 >
                   count is {count}
