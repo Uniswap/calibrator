@@ -18,8 +18,12 @@ export async function build(
     logger: true,
   })
 
-  // Initialize Fastify plugins
-  await app.register(cors)
+  // Register CORS
+  await app.register(cors, {
+    origin: true,
+  })
+
+  // Serve static frontend files
   await app.register(fastifyStatic, {
     root: join(process.cwd(), 'dist/public'),
     prefix: '/',
@@ -46,6 +50,7 @@ export async function build(
         minSourcesRequired: 1,
         cacheDurationMs: 30000,
         maxPriceDeviation: 0.05, // 5% maximum price deviation
+        maxSlippage: 0.01, // 1% maximum slippage
       }
     )
 
@@ -57,7 +62,10 @@ export async function build(
 
   // Health check endpoint
   app.get('/health', async () => {
-    return { status: 'ok' }
+    return {
+      status: 'ok',
+      timestamp: Date.now(),
+    }
   })
 
   return app

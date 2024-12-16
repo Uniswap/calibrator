@@ -33,6 +33,7 @@ describe('Quote Routes', () => {
         maxPriceDeviation: 0.01,
         cacheDurationMs: 60000,
         minSourcesRequired: 1,
+        maxSlippage: 0.01,
       }
 
       const service = new PriceService([provider], config)
@@ -71,6 +72,7 @@ describe('Quote Routes', () => {
         maxPriceDeviation: 0.01,
         cacheDurationMs: 60000,
         minSourcesRequired: 1,
+        maxSlippage: 0.01,
       })
 
       // Register quote routes
@@ -110,6 +112,7 @@ describe('Quote Routes', () => {
         maxPriceDeviation: 0.01,
         cacheDurationMs: 60000,
         minSourcesRequired: 1,
+        maxSlippage: 0.01,
       })
 
       // Register quote routes

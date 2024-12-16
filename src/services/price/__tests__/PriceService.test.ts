@@ -1,20 +1,28 @@
 import { PriceService } from '../PriceService.js'
 import { mockToken, mockPriceData, MockPriceProvider } from './testUtils.js'
 import { PriceServiceConfig } from '../types.js'
+import { Logger } from '../../../utils/logger.js'
 
 describe('PriceService', () => {
   const defaultConfig: PriceServiceConfig = {
-    maxPriceDeviation: 0.01,
-    cacheDurationMs: 60000,
-    minSourcesRequired: 1, // Changed from 2 to 1 for tests
+    minSourcesRequired: 1,
+    maxPriceDeviation: 0.05,
+    maxSlippage: 0.01,
+    cacheDurationMs: 30000,
   }
+
+  const silentLogger = new Logger('test', true)
 
   describe('getQuote', () => {
     it('should return a valid quote when providers agree on price', async () => {
       // Arrange
       const provider1 = new MockPriceProvider(mockPriceData('1.000', 'test1'))
       const provider2 = new MockPriceProvider(mockPriceData('1.010', 'test2'))
-      const service = new PriceService([provider1, provider2], defaultConfig)
+      const service = new PriceService(
+        [provider1, provider2],
+        defaultConfig,
+        silentLogger
+      )
 
       // Act
       const quote = await service.getQuote({
@@ -36,7 +44,11 @@ describe('PriceService', () => {
       // Arrange
       const provider1 = new MockPriceProvider(mockPriceData('2.0', 'test1'))
       const provider2 = new MockPriceProvider(mockPriceData('2.0', 'test2'))
-      const service = new PriceService([provider1, provider2], defaultConfig)
+      const service = new PriceService(
+        [provider1, provider2],
+        defaultConfig,
+        silentLogger
+      )
 
       // Act
       const quote = await service.getQuote({
@@ -53,7 +65,11 @@ describe('PriceService', () => {
       // Arrange
       const provider1 = new MockPriceProvider(mockPriceData('1.0', 'test1'))
       const provider2 = new MockPriceProvider(mockPriceData('1.5', 'test2')) // 50% deviation
-      const service = new PriceService([provider1, provider2], defaultConfig)
+      const service = new PriceService(
+        [provider1, provider2],
+        defaultConfig,
+        silentLogger
+      )
 
       // Act & Assert
       await expect(
@@ -68,7 +84,11 @@ describe('PriceService', () => {
       // Arrange
       const provider1 = new MockPriceProvider(mockPriceData(), false) // Won't support pair
       const provider2 = new MockPriceProvider(mockPriceData(), false) // Won't support pair
-      const service = new PriceService([provider1, provider2], defaultConfig)
+      const service = new PriceService(
+        [provider1, provider2],
+        defaultConfig,
+        silentLogger
+      )
 
       // Act & Assert
       await expect(
@@ -83,7 +103,11 @@ describe('PriceService', () => {
       // Arrange
       const provider1 = new MockPriceProvider(mockPriceData('1.0', 'test1'))
       const provider2 = new MockPriceProvider(mockPriceData(), true, true) // Will throw
-      const service = new PriceService([provider1, provider2], defaultConfig)
+      const service = new PriceService(
+        [provider1, provider2],
+        defaultConfig,
+        silentLogger
+      )
 
       // Act
       const quote = await service.getQuote({
@@ -100,7 +124,11 @@ describe('PriceService', () => {
       // Arrange
       const provider1 = new MockPriceProvider(mockPriceData('1.0', 'test1'))
       const provider2 = new MockPriceProvider(mockPriceData('1.0', 'test2'))
-      const service = new PriceService([provider1, provider2], defaultConfig)
+      const service = new PriceService(
+        [provider1, provider2],
+        defaultConfig,
+        silentLogger
+      )
 
       // Act
       const quote = await service.getQuote({

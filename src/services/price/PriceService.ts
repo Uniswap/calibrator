@@ -9,14 +9,21 @@ import {
   PriceQuoteRequest,
   PriceQuoteResponse,
 } from './types.js'
+import { Logger } from '../../utils/logger.js'
 
 export class PriceService {
   private providers: IPriceProvider[]
   private config: PriceServiceConfig
+  private logger: Logger
 
-  constructor(providers: IPriceProvider[], config: PriceServiceConfig) {
+  constructor(
+    providers: IPriceProvider[],
+    config: PriceServiceConfig,
+    logger: Logger = new Logger('PriceService')
+  ) {
     this.providers = providers
     this.config = config
+    this.logger = logger
   }
 
   /**
@@ -63,7 +70,7 @@ export class PriceService {
           prices.push(price)
         }
       } catch (error) {
-        console.error(`Error fetching price from provider: ${error}`)
+        this.logger.error(`Error fetching price from provider: ${error}`)
       }
     }
 

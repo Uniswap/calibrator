@@ -10,6 +10,8 @@ export interface PriceServiceConfig {
   cacheDurationMs: number
   /** Minimum number of sources required for price validation */
   minSourcesRequired: number
+  /** Default maximum slippage allowed (e.g., 0.01 for 1%) */
+  maxSlippage: number
 }
 
 /**
