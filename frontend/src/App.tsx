@@ -1,4 +1,9 @@
-import { QueryClient, QueryClientProvider, useQuery } from 'react-query'
+import {
+  QueryClient,
+  QueryClientProvider,
+  useQuery,
+  useMutation,
+} from 'react-query'
 import { useState, useRef, useEffect } from 'react'
 
 const queryClient = new QueryClient()
@@ -8,8 +13,22 @@ interface HealthStatus {
   timestamp: string
 }
 
+interface QuoteRequest {
+  inputTokenChainId: number
+  inputTokenAddress: string
+  inputTokenAmount: string
+  outputTokenChainId: number
+  outputTokenAddress: string
+}
+
+interface QuoteResponse extends QuoteRequest {
+  spotOutputAmount: string | null
+  quoteOutputAmount: string | null
+  deltaAmount: string | null
+}
+
 // Initial timestamp from the provided time
-const INITIAL_TIME = '2024-12-17T13:13:47-08:00'
+const INITIAL_TIME = '2024-12-17T13:15:52-08:00'
 
 function formatDateTime(date: Date): string {
   const datePart = date.toLocaleDateString('en-US', {
@@ -24,6 +43,174 @@ function formatDateTime(date: Date): string {
     hour12: true,
   })
   return `${datePart} ${timePart}`
+}
+
+function QuoteForm() {
+  const [formData, setFormData] = useState<QuoteRequest>({
+    inputTokenChainId: 0,
+    inputTokenAddress: '',
+    inputTokenAmount: '',
+    outputTokenChainId: 0,
+    outputTokenAddress: '',
+  })
+
+  const quoteMutation = useMutation<QuoteResponse, Error, QuoteRequest>(
+    async data => {
+      const response = await fetch('/quote', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      })
+      if (!response.ok) {
+        throw new Error('Failed to get quote')
+      }
+      return response.json()
+    }
+  )
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    quoteMutation.mutate(formData)
+  }
+
+  const isFormValid = () => {
+    return (
+      formData.inputTokenChainId > 0 &&
+      formData.inputTokenAddress.length > 0 &&
+      formData.inputTokenAmount.length > 0 &&
+      formData.outputTokenChainId > 0 &&
+      formData.outputTokenAddress.length > 0
+    )
+  }
+
+  return (
+    <div className="w-full max-w-lg">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              Input Chain ID
+            </label>
+            <input
+              type="number"
+              value={formData.inputTokenChainId || ''}
+              onChange={e =>
+                setFormData({
+                  ...formData,
+                  inputTokenChainId: parseInt(e.target.value) || 0,
+                })
+              }
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              Input Token Address
+            </label>
+            <input
+              type="text"
+              value={formData.inputTokenAddress}
+              onChange={e =>
+                setFormData({ ...formData, inputTokenAddress: e.target.value })
+              }
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              required
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            Input Amount
+          </label>
+          <input
+            type="text"
+            value={formData.inputTokenAmount}
+            onChange={e =>
+              setFormData({ ...formData, inputTokenAmount: e.target.value })
+            }
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            required
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              Output Chain ID
+            </label>
+            <input
+              type="number"
+              value={formData.outputTokenChainId || ''}
+              onChange={e =>
+                setFormData({
+                  ...formData,
+                  outputTokenChainId: parseInt(e.target.value) || 0,
+                })
+              }
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              Output Token Address
+            </label>
+            <input
+              type="text"
+              value={formData.outputTokenAddress}
+              onChange={e =>
+                setFormData({ ...formData, outputTokenAddress: e.target.value })
+              }
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              required
+            />
+          </div>
+        </div>
+
+        <div className="flex justify-between items-center">
+          <button
+            type="submit"
+            disabled={!isFormValid() || quoteMutation.isLoading}
+            className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {quoteMutation.isLoading ? 'Getting Quote...' : 'Get Quote'}
+          </button>
+
+          {quoteMutation.isError && (
+            <p className="text-red-500 text-sm">
+              Error: {quoteMutation.error.message}
+            </p>
+          )}
+        </div>
+      </form>
+
+      {quoteMutation.isSuccess && (
+        <div className="mt-6 p-4 bg-gray-50 rounded-md">
+          <h3 className="text-lg font-medium text-gray-900 mb-2">
+            Quote Result
+          </h3>
+          <div className="space-y-2 text-sm">
+            <p>
+              <span className="font-medium">Spot Output Amount:</span>{' '}
+              {quoteMutation.data.spotOutputAmount || 'N/A'}
+            </p>
+            <p>
+              <span className="font-medium">Quote Output Amount:</span>{' '}
+              {quoteMutation.data.quoteOutputAmount || 'N/A'}
+            </p>
+            <p>
+              <span className="font-medium">Delta Amount:</span>{' '}
+              {quoteMutation.data.deltaAmount || 'N/A'}
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
 
 function HealthCheck() {
@@ -90,30 +277,23 @@ function HealthCheck() {
 }
 
 function App() {
-  const [count, setCount] = useState(0)
-
   return (
     <QueryClientProvider client={queryClient}>
       <div className="min-h-screen bg-gray-100">
         <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
           <div className="px-4 py-6 sm:px-0">
-            <div className="border-4 border-dashed border-gray-200 rounded-lg h-96 flex items-center justify-center">
-              <div className="text-center">
+            <div className="border-4 border-dashed border-gray-200 rounded-lg p-6">
+              <div className="text-center mb-8">
                 <h1 className="text-4xl font-bold text-gray-900 mb-4">
                   Calibrator
                 </h1>
                 <p className="text-gray-600 mb-4">
                   Cross-chain token swap parameter calculation service
                 </p>
-                <button
-                  onClick={() => setCount(count => count + 1)}
-                  className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-                >
-                  count is {count}
-                </button>
-                <div className="mt-6">
-                  <HealthCheck />
-                </div>
+                <HealthCheck />
+              </div>
+              <div className="mt-8">
+                <QuoteForm />
               </div>
             </div>
           </div>

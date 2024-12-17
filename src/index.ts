@@ -1,44 +1,21 @@
-import fastify, { FastifyInstance } from 'fastify'
-import cors from '@fastify/cors'
-import fastifyStatic from '@fastify/static'
-import { dirname, join } from 'path'
-import { fileURLToPath } from 'url'
+import { build } from './app.js'
+import { Logger } from './utils/logger.js'
 
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = dirname(__filename)
+// Load environment variables
+const { config } = await import('dotenv')
+config()
 
-const server: FastifyInstance = fastify({
-  logger: {
-    transport: {
-      target: 'pino-pretty',
-      options: {
-        translateTime: 'HH:MM:ss Z',
-        ignore: 'pid,hostname',
-      },
-    },
-  },
-})
+const logger = new Logger('Server')
 
-// Register plugins
-await server.register(cors, {
-  origin: true,
-})
-
-// Serve static frontend files
-await server.register(fastifyStatic, {
-  root: join(__dirname, '..', 'dist', 'public'),
-  prefix: '/',
-})
-
-// Health check endpoint
-server.get('/health', async (_request, _reply) => {
-  return { status: 'ok' }
-})
-
-try {
-  await server.listen({ port: 3000 })
-  console.log('Server listening on port 3000')
-} catch (err) {
-  server.log.error(err)
-  process.exit(1)
+async function main() {
+  try {
+    const app = await build()
+    await app.listen({ port: 3000, host: '0.0.0.0' })
+    logger.info('Server listening on port 3000')
+  } catch (err) {
+    logger.error(`Error starting server: ${err}`)
+    process.exit(1)
+  }
 }
+
+main()

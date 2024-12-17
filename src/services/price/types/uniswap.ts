@@ -19,17 +19,16 @@ export interface IndicativeQuoteRequest {
  * Response from Uniswap indicative quote
  */
 export interface IndicativeQuoteResponse {
-  quote: {
-    amount: string
-    amountDecimals: string
-  }
-  quoteGasAdjusted: {
-    amount: string
-    amountDecimals: string
-  }
-  quoteId: string
   requestId: string
-  gasPriceWei: string
-  gasUseEstimate: string
-  routing: string
+  type: QuoteType
+  input: {
+    token: string
+    chainId: number
+    amount: string
+  }
+  output: {
+    token: string
+    chainId: number
+    amount: string
+  }
 }

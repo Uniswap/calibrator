@@ -18,8 +18,17 @@ interface BuildOptions {
 export async function build(
   options: BuildOptions = {}
 ): Promise<FastifyInstance> {
+  const logger = new Logger('App')
   const app = fastify({
-    logger: true,
+    logger: {
+      transport: {
+        target: 'pino-pretty',
+        options: {
+          translateTime: 'HH:MM:ss Z',
+          ignore: 'pid,hostname',
+        },
+      },
+    },
   })
 
   // Register CORS
@@ -29,7 +38,7 @@ export async function build(
 
   // Serve static frontend files
   await app.register(fastifyStatic, {
-    root: join(process.cwd(), 'dist/public'),
+    root: join(process.cwd(), 'dist', 'public'),
     prefix: '/',
   })
 
@@ -64,8 +73,16 @@ export async function build(
   }
 
   // Register routes
-  await healthRoutes(app)
-  await quoteRoutes(app, quoteService)
+  await app.register(async function (fastify) {
+    await healthRoutes(fastify)
+    await quoteRoutes(fastify, quoteService)
+  })
+
+  // Log registered routes for debugging
+  app.ready(() => {
+    logger.info('Registered routes:')
+    console.log(app.printRoutes())
+  })
 
   return app
 }

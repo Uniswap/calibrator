@@ -19,7 +19,30 @@ const mockResponse = {
       { chain_identifier: 137, id: 'polygon-pos' },
     ]),
 }
-global.fetch = jest.fn(() => Promise.resolve(mockResponse)) as jest.Mock
+
+// Mock token info response
+const mockTokenInfoResponse = {
+  ok: true,
+  json: () =>
+    Promise.resolve({
+      detail_platforms: {
+        ethereum: {
+          decimal_place: 18,
+        },
+      },
+      symbol: 'TEST',
+    }),
+}
+
+const mockFetch = jest.fn((url: string | URL | Request) => {
+  const urlString = url.toString()
+  if (urlString.includes('asset_platforms')) {
+    return Promise.resolve(mockResponse)
+  }
+  return Promise.resolve(mockTokenInfoResponse)
+})
+
+global.fetch = mockFetch as jest.Mock
 
 describe('Quote Routes', () => {
   let app: FastifyInstance
@@ -43,6 +66,11 @@ describe('Quote Routes', () => {
       apiKey: '',
       cacheDurationMs: 0,
     }) as jest.Mocked<CoinGeckoProvider>
+
+    // Mock getSupportedPlatforms
+    jest
+      .spyOn(mockCoinGeckoProvider, 'getSupportedPlatforms')
+      .mockImplementation(() => Promise.resolve(['ethereum', 'polygon-pos']))
 
     mockUniswapProvider = new UniswapProvider({
       apiUrl: '',
@@ -83,7 +111,7 @@ describe('Quote Routes', () => {
   describe('POST /quote', () => {
     it('should return quote with both providers successful', async () => {
       // Mock CoinGecko responses with proper numeric strings
-      mockCoinGeckoProvider.getPrice
+      mockCoinGeckoProvider.getUsdPrice
         .mockResolvedValueOnce(mockPriceData('2000000000000000000000')) // 2000 * 10^18
         .mockResolvedValueOnce(mockPriceData('1000000000000000000')) // 1 * 10^18
 
@@ -136,7 +164,9 @@ describe('Quote Routes', () => {
 
     it('should handle provider errors gracefully', async () => {
       // Mock CoinGecko failure
-      mockCoinGeckoProvider.getPrice.mockRejectedValue(new Error('API error'))
+      mockCoinGeckoProvider.getUsdPrice.mockRejectedValue(
+        new Error('API error')
+      )
 
       // Mock Uniswap failure
       mockUniswapProvider.getUniswapPrice.mockRejectedValue(

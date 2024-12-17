@@ -36,6 +36,10 @@ export class UniswapProvider implements IUniswapProvider {
       amount,
     }
 
+    this.logger.info(
+      `Sending request to Uniswap API: ${JSON.stringify(request)}`
+    )
+
     const response = await fetch(`${this.config.apiUrl}/v1/indicative_quote`, {
       method: 'POST',
       headers: {
@@ -51,7 +55,11 @@ export class UniswapProvider implements IUniswapProvider {
       throw new Error(`Uniswap API error: ${error}`)
     }
 
-    return response.json() as Promise<IndicativeQuoteResponse>
+    const data = (await response.json()) as IndicativeQuoteResponse
+    this.logger.info(
+      `Received response from Uniswap API: ${JSON.stringify(data)}`
+    )
+    return data
   }
 
   async hasDirectPool(tokenA: Token, tokenB: Token): Promise<boolean> {
@@ -87,8 +95,12 @@ export class UniswapProvider implements IUniswapProvider {
         amount || defaultAmount
       )
 
+      if (!quote?.output?.amount) {
+        throw new Error('Invalid quote response from Uniswap API')
+      }
+
       return {
-        price: quote.quote.amountDecimals,
+        price: quote.output.amount,
         source: 'uniswap',
         timestamp: Date.now(),
       }

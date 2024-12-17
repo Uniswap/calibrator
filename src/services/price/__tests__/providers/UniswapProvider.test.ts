@@ -2,6 +2,7 @@ import { UniswapProvider } from '../../providers/UniswapProvider.js'
 import { Token } from '../../interfaces/IPriceProvider.js'
 import { UniswapConfig } from '../../interfaces/IUniswapProvider.js'
 import { Logger } from '../../../../utils/logger.js'
+import { IndicativeQuoteResponse } from '../../types/uniswap.js'
 
 describe('UniswapProvider', () => {
   const mockConfig: UniswapConfig = {
@@ -21,20 +22,19 @@ describe('UniswapProvider', () => {
     symbol: 'TEST',
   })
 
-  const mockQuoteResponse = {
-    quote: {
-      amount: '2000000000',
-      amountDecimals: '2000.0',
-    },
-    quoteGasAdjusted: {
-      amount: '1990000000',
-      amountDecimals: '1990.0',
-    },
-    quoteId: 'test-quote-id',
+  const mockQuoteResponse: IndicativeQuoteResponse = {
     requestId: 'test-request-id',
-    gasPriceWei: '20000000000',
-    gasUseEstimate: '100000',
-    routing: 'test-routing',
+    type: 'EXACT_INPUT',
+    input: {
+      token: '0x0000000000000000000000000000000000000000',
+      chainId: 1,
+      amount: '1000000000000000000', // 1 ETH
+    },
+    output: {
+      token: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+      chainId: 1,
+      amount: '2000000000', // 2000 USDC (6 decimals)
+    },
   }
 
   beforeEach(() => {
@@ -59,7 +59,7 @@ describe('UniswapProvider', () => {
     const price = await provider.getPrice(tokenIn, tokenOut)
 
     expect(price).toEqual({
-      price: '2000.0',
+      price: '2000000000',
       source: 'uniswap',
       timestamp: expect.any(Number),
     })

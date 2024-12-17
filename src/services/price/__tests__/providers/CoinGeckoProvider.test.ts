@@ -42,7 +42,7 @@ describe('CoinGeckoProvider', () => {
       const result = await provider.getUsdPrice(ethToken)
 
       // Assert
-      expect(result.price).toBe('4039.64')
+      expect(result.price).toBe('4039639999999999737856') // 4039.64 in wei
       expect(result.source).toBe('coingecko')
       expect(mockFetch).toHaveBeenCalledWith(
         'https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd',
@@ -71,7 +71,7 @@ describe('CoinGeckoProvider', () => {
       const result = await provider.getUsdPrice(usdcToken)
 
       // Assert
-      expect(result.price).toBe('0.999597')
+      expect(result.price).toBe('999597000000000000') // 0.999597 in wei
       expect(result.source).toBe('coingecko')
       expect(mockFetch).toHaveBeenCalledWith(
         'https://api.coingecko.com/api/v3/simple/token_price/ethereum?contract_addresses=0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48&vs_currencies=usd',
@@ -160,8 +160,8 @@ describe('CoinGeckoProvider', () => {
       const result2 = await provider.getUsdPrice(ethToken)
 
       // Assert
-      expect(result1.price).toBe('4039.64')
-      expect(result2.price).toBe('4040')
+      expect(result1.price).toBe('4039639999999999737856') // 4039.64 in wei
+      expect(result2.price).toBe('4040000000000000000000') // 4040 in wei
       expect(mockFetch).toHaveBeenCalledTimes(2)
     })
 
@@ -247,7 +247,7 @@ describe('CoinGeckoProvider', () => {
       const result = await provider.getPrice(ethToken, usdcToken)
 
       // Assert
-      expect(result.price).toBe('0.00025') // 1/4000
+      expect(result.price).toBe('4000000000000000000000') // 4000 in wei (ETH/USDC price)
       expect(result.source).toBe('coingecko')
     })
   })

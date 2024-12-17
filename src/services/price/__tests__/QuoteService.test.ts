@@ -6,20 +6,35 @@ import { Logger } from '../../../utils/logger.js'
 import { PriceData } from '../interfaces/IPriceProvider.js'
 
 // Mock fetch
-const mockResponse = {
+const mockAssetPlatformsResponse = {
   ok: true,
   json: () =>
     Promise.resolve([
       { chain_identifier: 1, id: 'ethereum' },
       { chain_identifier: 137, id: 'polygon-pos' },
     ]),
-} as Response
+}
 
-// Create a properly typed mock fetch function
-const mockFetch = jest.fn(
-  (_input: string | URL | Request, _init?: RequestInit): Promise<Response> =>
-    Promise.resolve(mockResponse)
-)
+const mockTokenInfoResponse = {
+  ok: true,
+  json: () =>
+    Promise.resolve({
+      detail_platforms: {
+        ethereum: {
+          decimal_place: 18,
+        },
+      },
+      symbol: 'TEST',
+    }),
+}
+
+const mockFetch = jest.fn((url: string | URL | Request) => {
+  const urlString = url.toString()
+  if (urlString.includes('asset_platforms')) {
+    return Promise.resolve(mockAssetPlatformsResponse)
+  }
+  return Promise.resolve(mockTokenInfoResponse)
+}) as jest.Mock
 
 // Type assertion for global fetch
 global.fetch = mockFetch as unknown as typeof global.fetch
@@ -50,6 +65,11 @@ describe('QuoteService', () => {
       apiKey: '',
       cacheDurationMs: 0,
     }) as jest.Mocked<CoinGeckoProvider>
+
+    // Mock getSupportedPlatforms
+    jest
+      .spyOn(mockCoinGeckoProvider, 'getSupportedPlatforms')
+      .mockImplementation(() => Promise.resolve(['ethereum', 'polygon-pos']))
 
     mockUniswapProvider = new UniswapProvider({
       apiUrl: '',
@@ -88,7 +108,7 @@ describe('QuoteService', () => {
     }
 
     // Mock CoinGecko responses with proper numeric strings
-    mockCoinGeckoProvider.getPrice
+    mockCoinGeckoProvider.getUsdPrice
       .mockResolvedValueOnce(mockPriceData('2000000000000000000000')) // 2000 * 10^18
       .mockResolvedValueOnce(mockPriceData('1000000000000000000')) // 1 * 10^18
 
@@ -121,7 +141,7 @@ describe('QuoteService', () => {
     }
 
     // Mock CoinGecko failure
-    mockCoinGeckoProvider.getPrice.mockRejectedValue(new Error('API error'))
+    mockCoinGeckoProvider.getUsdPrice.mockRejectedValue(new Error('API error'))
 
     // Mock Uniswap success
     mockUniswapProvider.getUniswapPrice.mockResolvedValue({
@@ -152,7 +172,7 @@ describe('QuoteService', () => {
     }
 
     // Mock CoinGecko success
-    mockCoinGeckoProvider.getPrice
+    mockCoinGeckoProvider.getUsdPrice
       .mockResolvedValueOnce(mockPriceData('2000000000000000000000'))
       .mockResolvedValueOnce(mockPriceData('1000000000000000000'))
 
