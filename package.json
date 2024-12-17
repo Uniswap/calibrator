@@ -12,8 +12,14 @@
     "pnpm": ">=8"
   },
   "scripts": {
-    "dev": "pnpm --parallel run dev",
-    "build": "pnpm --parallel run build",
+    "dev:frontend": "cd frontend && pnpm dev",
+    "dev:server": "tsx watch src/index.ts",
+    "dev": "concurrently --kill-others-on-fail \"pnpm dev:frontend\" \"pnpm dev:server\"",
+    "build:frontend": "cd frontend && pnpm build",
+    "build:server": "tsc",
+    "build": "pnpm build:server && pnpm build:frontend",
+    "start": "node dist/index.js",
+    "stop": "pkill -f \"node.*calibrator|vite\"",
     "lint": "pnpm --parallel run lint",
     "lint:fix": "pnpm --parallel run lint:fix",
     "format": "pnpm --parallel run format",
