@@ -1,14 +1,14 @@
-import { FastifyInstance } from 'fastify';
+import { FastifyInstance } from 'fastify'
 
 export async function healthRoutes(fastify: FastifyInstance) {
-  fastify.get('/', {
+  fastify.get('/health', {
     schema: {
       response: {
         200: {
           type: 'object',
           properties: {
             status: { type: 'string' },
-            timestamp: { type: 'string' },
+            timestamp: { type: 'number' },
           },
         },
       },
@@ -16,8 +16,8 @@ export async function healthRoutes(fastify: FastifyInstance) {
     handler: async () => {
       return {
         status: 'ok',
-        timestamp: new Date().toISOString(),
-      };
+        timestamp: Date.now(),
+      }
     },
-  });
+  })
 }

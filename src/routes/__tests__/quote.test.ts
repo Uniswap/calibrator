@@ -1,19 +1,79 @@
 import { FastifyInstance } from 'fastify'
 import { build } from '../../app.js'
-import { PriceService } from '../../services/price/PriceService.js'
-import {
-  mockToken,
-  mockPriceData,
-  MockPriceProvider,
-} from '../../services/price/__tests__/testUtils.js'
-import { PriceServiceConfig } from '../../services/price/types.js'
-import { quoteRoutes } from '../../routes/quote.js'
+import { QuoteService } from '../../services/price/QuoteService.js'
+import { CoinGeckoProvider } from '../../services/price/providers/CoinGeckoProvider.js'
+import { UniswapProvider } from '../../services/price/providers/UniswapProvider.js'
+import { Logger } from '../../utils/logger.js'
+import { PriceData } from '../../services/price/interfaces/IPriceProvider.js'
+
+// Mock the providers
+jest.mock('../../services/price/providers/CoinGeckoProvider')
+jest.mock('../../services/price/providers/UniswapProvider')
+
+// Mock fetch for asset platforms
+const mockResponse = {
+  ok: true,
+  json: () =>
+    Promise.resolve([
+      { chain_identifier: 1, id: 'ethereum' },
+      { chain_identifier: 137, id: 'polygon-pos' },
+    ]),
+}
+global.fetch = jest.fn(() => Promise.resolve(mockResponse)) as jest.Mock
 
 describe('Quote Routes', () => {
   let app: FastifyInstance
+  let mockCoinGeckoProvider: jest.Mocked<CoinGeckoProvider>
+  let mockUniswapProvider: jest.Mocked<UniswapProvider>
+  let quoteService: QuoteService
+
+  const mockPriceData = (price: string): PriceData => ({
+    price,
+    timestamp: Date.now(),
+    source: 'test',
+  })
 
   beforeEach(async () => {
-    app = await build({ registerRoutes: false })
+    // Reset mocks
+    jest.clearAllMocks()
+
+    // Create mock providers
+    mockCoinGeckoProvider = new CoinGeckoProvider({
+      apiUrl: '',
+      apiKey: '',
+      cacheDurationMs: 0,
+    }) as jest.Mocked<CoinGeckoProvider>
+
+    mockUniswapProvider = new UniswapProvider({
+      apiUrl: '',
+      apiKey: '',
+      cacheDurationMs: 0,
+    }) as jest.Mocked<UniswapProvider>
+
+    // Create QuoteService
+    quoteService = new QuoteService(
+      mockCoinGeckoProvider,
+      mockUniswapProvider,
+      new Logger('QuoteServiceTest')
+    )
+    await quoteService.initialize()
+
+    // Build app with mock dependencies
+    app = await build({
+      coinGeckoProvider: mockCoinGeckoProvider,
+      uniswapProvider: mockUniswapProvider,
+      quoteService: quoteService,
+    })
+
+    // Configure content type parser
+    app.removeAllContentTypeParsers()
+    app.addContentTypeParser(
+      'application/json',
+      { parseAs: 'string' },
+      async (_: unknown, body: string) => {
+        return JSON.parse(body)
+      }
+    )
   })
 
   afterEach(async () => {
@@ -21,124 +81,110 @@ describe('Quote Routes', () => {
   })
 
   describe('POST /quote', () => {
-    it('should return price quote for valid tokens', async () => {
-      // Set up mock provider that will return a valid price
-      const provider = new MockPriceProvider(
-        mockPriceData('1.0', 'test'),
-        true, // supports pair
-        false // won't throw
-      )
+    it('should return quote with both providers successful', async () => {
+      // Mock CoinGecko responses with proper numeric strings
+      mockCoinGeckoProvider.getPrice
+        .mockResolvedValueOnce(mockPriceData('2000000000000000000000')) // 2000 * 10^18
+        .mockResolvedValueOnce(mockPriceData('1000000000000000000')) // 1 * 10^18
 
-      const config: PriceServiceConfig = {
-        maxPriceDeviation: 0.01,
-        cacheDurationMs: 60000,
-        minSourcesRequired: 1,
-        maxSlippage: 0.01,
-      }
-
-      const service = new PriceService([provider], config)
-
-      // Register quote routes with our mock price service
-      await app.register(async fastify => {
-        await quoteRoutes(fastify, service)
+      // Mock Uniswap response
+      mockUniswapProvider.getUniswapPrice.mockResolvedValue({
+        ...mockPriceData('2100000000000000000000'), // 2100 * 10^18
+        poolAddress: '0xpool',
+        liquidity: '1000000000000000000',
       })
 
       const payload = {
-        tokenIn: mockToken(1, '0x1'),
-        tokenOut: mockToken(1, '0x2'),
-        amountIn: '100',
-        maxSlippage: 0.01,
+        inputTokenChainId: 1,
+        inputTokenAddress: '0x1234',
+        inputTokenAmount: '1000000000000000000', // 1 ETH
+        outputTokenChainId: 1,
+        outputTokenAddress: '0x5678',
       }
 
-      // Act
       const response = await app.inject({
         method: 'POST',
         url: '/quote',
         payload,
       })
 
-      // Assert
       expect(response.statusCode).toBe(200)
       const result = JSON.parse(response.payload)
-      expect(result.price).toBeDefined()
-      expect(result.price.price).toBe('1.0')
-      expect(result.estimatedOut).toBe('100')
+      expect(result).toEqual({
+        ...payload,
+        spotOutputAmount: '2000000000000000000000',
+        quoteOutputAmount: '2100000000000000000000',
+        deltaAmount: '100000000000000000000', // 100 * 10^18
+      })
     })
 
     it('should validate request payload', async () => {
-      // Set up mock provider
-      const provider = new MockPriceProvider()
-      const service = new PriceService([provider], {
-        maxPriceDeviation: 0.01,
-        cacheDurationMs: 60000,
-        minSourcesRequired: 1,
-        maxSlippage: 0.01,
-      })
-
-      // Register quote routes
-      await app.register(async fastify => {
-        await quoteRoutes(fastify, service)
-      })
-
-      // Arrange
       const invalidPayload = {
-        tokenIn: {
-          // Missing required fields
-          chainId: 1,
-        },
-        tokenOut: mockToken(1, '0x2'),
+        inputTokenChainId: 1,
+        // Missing required fields
+        outputTokenAddress: '0x5678',
       }
 
-      // Act
       const response = await app.inject({
         method: 'POST',
         url: '/quote',
         payload: invalidPayload,
       })
 
-      // Assert
       expect(response.statusCode).toBe(400)
     })
 
-    it('should handle price service errors', async () => {
-      // Set up mock provider that will throw
-      const provider = new MockPriceProvider(
-        mockPriceData(),
-        false, // doesn't support pair
-        false // won't throw
+    it('should handle provider errors gracefully', async () => {
+      // Mock CoinGecko failure
+      mockCoinGeckoProvider.getPrice.mockRejectedValue(new Error('API error'))
+
+      // Mock Uniswap failure
+      mockUniswapProvider.getUniswapPrice.mockRejectedValue(
+        new Error('No pool found')
       )
 
-      const service = new PriceService([provider], {
-        maxPriceDeviation: 0.01,
-        cacheDurationMs: 60000,
-        minSourcesRequired: 1,
-        maxSlippage: 0.01,
-      })
-
-      // Register quote routes
-      await app.register(async fastify => {
-        await quoteRoutes(fastify, service)
-      })
-
       const payload = {
-        tokenIn: mockToken(1, '0x1'),
-        tokenOut: mockToken(1, '0x2'),
-        amountIn: '100',
+        inputTokenChainId: 1,
+        inputTokenAddress: '0x1234',
+        inputTokenAmount: '1000000000000000000',
+        outputTokenChainId: 1,
+        outputTokenAddress: '0x5678',
       }
 
-      // Act
       const response = await app.inject({
         method: 'POST',
         url: '/quote',
         payload,
       })
 
-      // Assert
+      expect(response.statusCode).toBe(200)
+      const result = JSON.parse(response.payload)
+      expect(result).toEqual({
+        ...payload,
+        spotOutputAmount: null,
+        quoteOutputAmount: null,
+        deltaAmount: null,
+      })
+    })
+
+    it('should handle unsupported chains', async () => {
+      const payload = {
+        inputTokenChainId: 999, // Unsupported chain
+        inputTokenAddress: '0x1234',
+        inputTokenAmount: '1000000000000000000',
+        outputTokenChainId: 1,
+        outputTokenAddress: '0x5678',
+      }
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/quote',
+        payload,
+      })
+
       expect(response.statusCode).toBe(400)
       const error = JSON.parse(response.payload)
-      expect(error.error).toBe(
-        'Insufficient price sources. Required: 1, Found: 0'
-      )
+      expect(error.error).toBe('Unsupported chain ID: 999')
     })
   })
 })

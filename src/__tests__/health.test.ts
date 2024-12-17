@@ -1,10 +1,24 @@
 import { FastifyInstance } from 'fastify'
 import { build } from '../app.js'
 
+// Mock fetch for asset platforms
+const mockFetch = jest.fn()
+global.fetch = mockFetch as unknown as typeof fetch
+
 describe('Health Check', () => {
   let app: FastifyInstance
 
   beforeAll(async () => {
+    // Mock fetch response for asset platforms
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve([
+          { chain_identifier: 1, id: 'ethereum' },
+          { chain_identifier: 137, id: 'polygon-pos' },
+        ]),
+    } as Response)
+
     app = await build()
   })
 
@@ -19,9 +33,8 @@ describe('Health Check', () => {
     })
 
     expect(response.statusCode).toBe(200)
-    expect(response.json()).toEqual({
-      status: 'ok',
-      timestamp: expect.any(Number),
-    })
+    const result = JSON.parse(response.payload)
+    expect(result.status).toBe('ok')
+    expect(result.timestamp).toBeGreaterThan(0)
   })
 })

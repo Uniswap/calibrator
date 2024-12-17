@@ -1,26 +1,20 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
 import { Type, Static } from '@sinclair/typebox'
-import { PriceService } from '../services/price/PriceService.js'
-
-const TokenSchema = Type.Object({
-  address: Type.String(),
-  chainId: Type.Number(),
-  decimals: Type.Number(),
-  symbol: Type.String(),
-})
+import { QuoteService } from '../services/price/QuoteService.js'
 
 const QuoteRequestSchema = Type.Object({
-  tokenIn: TokenSchema,
-  tokenOut: TokenSchema,
-  amountIn: Type.Optional(Type.String()),
-  maxSlippage: Type.Optional(Type.Number()),
+  inputTokenChainId: Type.Number(),
+  inputTokenAddress: Type.String(),
+  inputTokenAmount: Type.String(),
+  outputTokenChainId: Type.Number(),
+  outputTokenAddress: Type.String(),
 })
 
 type QuoteRequest = Static<typeof QuoteRequestSchema>
 
 export async function quoteRoutes(
   fastify: FastifyInstance,
-  priceService: PriceService
+  quoteService: QuoteService
 ): Promise<void> {
   fastify.post<{ Body: QuoteRequest }>(
     '/quote',
@@ -34,12 +28,7 @@ export async function quoteRoutes(
       reply: FastifyReply
     ) => {
       try {
-        const quote = await priceService.getQuote({
-          tokenIn: request.body.tokenIn,
-          tokenOut: request.body.tokenOut,
-          amountIn: request.body.amountIn,
-          maxSlippage: request.body.maxSlippage,
-        })
+        const quote = await quoteService.getQuote(request.body)
         reply.send(quote)
       } catch (error) {
         fastify.log.error(error)

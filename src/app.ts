@@ -2,17 +2,21 @@ import fastify, { FastifyInstance } from 'fastify'
 import cors from '@fastify/cors'
 import { join } from 'path'
 import fastifyStatic from '@fastify/static'
-import { UniswapProvider } from './services/price/providers/UniswapProvider.js'
 import { CoinGeckoProvider } from './services/price/providers/CoinGeckoProvider.js'
-import { PriceService } from './services/price/PriceService.js'
+import { UniswapProvider } from './services/price/providers/UniswapProvider.js'
+import { QuoteService } from './services/price/QuoteService.js'
 import { quoteRoutes } from './routes/quote.js'
+import { healthRoutes } from './routes/health.js'
+import { Logger } from './utils/logger.js'
 
 interface BuildOptions {
-  registerRoutes?: boolean
+  coinGeckoProvider?: CoinGeckoProvider
+  uniswapProvider?: UniswapProvider
+  quoteService?: QuoteService
 }
 
 export async function build(
-  options: BuildOptions = { registerRoutes: true }
+  options: BuildOptions = {}
 ): Promise<FastifyInstance> {
   const app = fastify({
     logger: true,
@@ -29,46 +33,39 @@ export async function build(
     prefix: '/',
   })
 
-  if (options.registerRoutes) {
-    // Initialize price providers
-    const coinGeckoProvider = new CoinGeckoProvider({
+  // Configure providers
+  const coinGeckoProvider =
+    options.coinGeckoProvider ||
+    new CoinGeckoProvider({
       apiUrl: 'https://pro-api.coingecko.com/api/v3',
       apiKey: process.env.COINGECKO_API_KEY,
-      cacheDurationMs: 30000,
+      cacheDurationMs: 30000, // 30 seconds
     })
 
-    const uniswapProvider = new UniswapProvider({
-      apiUrl: 'https://api.uniswap.org/v1',
+  const uniswapProvider =
+    options.uniswapProvider ||
+    new UniswapProvider({
+      apiUrl: 'https://trade-api.gateway.uniswap.org',
       apiKey: process.env.UNISWAP_API_KEY,
-      cacheDurationMs: 30000,
+      cacheDurationMs: 30000, // 30 seconds
     })
 
-    // Initialize price service
-    const priceService = new PriceService(
-      [coinGeckoProvider, uniswapProvider],
-      {
-        minSourcesRequired: 1,
-        cacheDurationMs: 30000,
-        maxPriceDeviation: 0.05, // 5% maximum price deviation
-        maxSlippage: 0.01, // 1% maximum slippage
-      }
+  // Initialize QuoteService
+  const quoteService =
+    options.quoteService ||
+    new QuoteService(
+      coinGeckoProvider,
+      uniswapProvider,
+      new Logger('QuoteService')
     )
 
-    // Register routes
-    await app.register(async fastify => {
-      await quoteRoutes(fastify, priceService)
-    })
+  if (!options.quoteService) {
+    await quoteService.initialize()
   }
 
-  // Health check endpoint
-  app.get('/health', async () => {
-    return {
-      status: 'ok',
-      timestamp: Date.now(),
-    }
-  })
+  // Register routes
+  await healthRoutes(app)
+  await quoteRoutes(app, quoteService)
 
   return app
 }
-
-export default build
