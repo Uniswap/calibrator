@@ -4,6 +4,7 @@ import type {
   CompactData,
   LockParameters,
   Quote,
+  QuoteContext,
 } from '../../types/quote.js'
 
 export class QuoteConfigurationService {
@@ -18,7 +19,7 @@ export class QuoteConfigurationService {
     sponsor: Address,
     duration: number,
     lockParameters: LockParameters,
-    context: any
+    context: QuoteContext
   ): Promise<{
     data: CompactData
     witnessHash: `0x${string}`
@@ -89,7 +90,7 @@ export class QuoteConfigurationService {
 
   private generateWitnessHash(
     witnessTypeString: string,
-    witnessData: Record<string, any>
+    witnessData: Record<string, bigint | number | string | Address>
   ): `0x${string}` {
     // Parse the type string to get the struct name and parameters
     const [structName, paramString] = witnessTypeString.split(' ')[0].split('(')

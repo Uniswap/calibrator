@@ -2,6 +2,7 @@ import {
   type ArbiterMapping,
   type Quote,
   type LockParameters,
+  type QuoteContext,
 } from '../types/quote.js'
 
 export const arbiterMapping: ArbiterMapping = {
@@ -15,7 +16,7 @@ export const arbiterMapping: ArbiterMapping = {
       sponsor: `0x${string}`,
       duration: number,
       lockParameters: LockParameters,
-      context: Record<string, any>
+      context: QuoteContext
     ) => ({
       chainId: quote.outputChainId,
       tribunal: '0x2222222222222222222222222222222222222222',

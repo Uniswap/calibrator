@@ -22,7 +22,16 @@ export interface CompactData {
   expires: bigint
   id: bigint
   amount: bigint
-  [witnessKey: string]: any
+  [witnessKey: string]: unknown
+}
+
+export interface QuoteContext {
+  slippageBips?: number
+  recipient?: Address
+  expires?: bigint
+  baselinePriorityFee?: bigint
+  scalingFactor?: bigint
+  [key: string]: unknown
 }
 
 export interface ArbiterConfig {
@@ -33,10 +42,10 @@ export interface ArbiterConfig {
     sponsor: Address,
     duration: number,
     lockParameters: LockParameters,
-    context: any
-  ) => Record<string, any>
+    context: QuoteContext
+  ) => Record<string, bigint | number | string | Address>
 }
 
 export interface ArbiterMapping {
-  [key: string]: ArbiterConfig // key format: "${inputChainId}-${outputChainId}"
+  [key: string]: ArbiterConfig
 }
