@@ -233,7 +233,12 @@ function HealthCheck() {
   const { data, isLoading, isError } = useQuery<HealthStatus>(
     'health',
     async () => {
-      const response = await fetch('/health')
+      // In test environment, use a mock URL that will be intercepted
+      const baseUrl =
+        process.env.NODE_ENV === 'test'
+          ? 'http://test'
+          : import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'
+      const response = await fetch(`${baseUrl}/health`)
       if (!response.ok) {
         throw new Error('Health check failed')
       }
