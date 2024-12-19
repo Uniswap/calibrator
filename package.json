@@ -37,7 +37,8 @@
     "dotenv": "^16.4.7",
     "fastify": "^4.24.3",
     "pino": "^8.16.2",
-    "pino-pretty": "^10.2.3"
+    "pino-pretty": "^10.2.3",
+    "viem": "^2.21.55"
   },
   "devDependencies": {
     "@types/jest": "^29.5.11",
