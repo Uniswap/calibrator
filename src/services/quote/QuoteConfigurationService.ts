@@ -24,32 +24,25 @@ export class QuoteConfigurationService {
     data: CompactData
     witnessHash: `0x${string}`
   }> {
-    // Find the appropriate arbiter
-    const arbiterKey = `${quote.inputChainId}-${quote.outputChainId}`
-    const arbiter = this.arbiterMapping[arbiterKey]
+    // Validate reset period
+    if (lockParameters.resetPeriod < 0 || lockParameters.resetPeriod > 7) {
+      throw new Error('Reset period must be between 0 and 7')
+    }
 
+    // Get arbiter for chain pair
+    const chainPair = `${quote.inputChainId}-${quote.outputChainId}`
+    const arbiter = this.arbiterMapping[chainPair]
     if (!arbiter) {
-      throw new Error(`No arbiter found for chain pair ${arbiterKey}`)
+      throw new Error(`No arbiter found for chain pair ${chainPair}`)
     }
 
-    // Calculate expiration time (now + duration)
-    const expires = BigInt(Math.floor(Date.now() / 1000) + duration)
-
-    // Calculate ID based on lock parameters
-    const id = this.calculateId(quote.inputToken, lockParameters)
-
-    // Generate the base compact data
-    const compactData: CompactData = {
-      arbiter: arbiter.address,
-      sponsor,
-      nonce: null,
-      expires,
-      id,
-      amount: quote.inputAmount,
-    }
+    // Calculate ID and expiration
+    const id = this.calculateId(lockParameters, quote.inputToken)
+    const expires =
+      context.expires ?? BigInt(Math.floor(Date.now() / 1000) + duration)
 
     // Get witness data from resolver
-    const witnessData = arbiter.resolver(
+    const witness = arbiter.resolver(
       quote,
       sponsor,
       duration,
@@ -57,35 +50,60 @@ export class QuoteConfigurationService {
       context
     )
 
-    // Extract witness key from typestring (e.g., "Mandate mandate" -> "mandate")
-    const witnessKey = arbiter.witnessTypeString.split(' ')[1].split(')')[0]
-    compactData[witnessKey] = witnessData
+    // Parse witness type string to get variable name
+    const parts = arbiter.witnessTypeString.split(')')
+    const nonEmptyParts = parts.filter(part => part.length > 0)
+    if (nonEmptyParts.length !== 2) {
+      throw new Error(
+        'Invalid witness type string format: missing variable declaration'
+      )
+    }
+    const [variableDecl] = nonEmptyParts
+    const [, variableName] = variableDecl.split(' ')
+    if (!variableName) {
+      throw new Error(
+        'Invalid witness type string format: invalid variable declaration'
+      )
+    }
 
-    // Generate EIP-712 hash of the witness data
-    const witnessHash = this.generateWitnessHash(
+    // Generate witness hash
+    const witnessHash = await this.generateWitnessHash(
       arbiter.witnessTypeString,
-      witnessData
+      witness
     )
 
+    // Return configuration with dynamic witness key
     return {
-      data: compactData,
+      data: {
+        arbiter: arbiter.address,
+        sponsor,
+        nonce: null,
+        expires,
+        id,
+        amount: quote.inputAmount,
+        [variableName]: witness,
+      },
       witnessHash,
     }
   }
 
   private calculateId(
-    inputToken: Address,
-    { isMultichain, resetPeriod, allocatorId }: LockParameters
+    lockParameters: LockParameters,
+    inputToken: Address
   ): bigint {
-    const multiChainBit = isMultichain ? 0n : 1n
+    const multiChainBit = lockParameters.isMultichain ? 0n : 1n
     const inputTokenBigInt = BigInt(inputToken)
 
     return (
       (multiChainBit << 255n) |
-      (BigInt(resetPeriod) << 252n) |
-      (allocatorId << 160n) |
+      (BigInt(lockParameters.resetPeriod) << 252n) |
+      (lockParameters.allocatorId << 160n) |
       inputTokenBigInt
     )
+  }
+
+  private calculateMinimumAmount(amount: bigint, slippageBips: number): bigint {
+    return amount - (amount * BigInt(slippageBips)) / 10000n
   }
 
   private generateWitnessHash(
@@ -93,12 +111,44 @@ export class QuoteConfigurationService {
     witnessData: Record<string, bigint | number | string | Address>
   ): `0x${string}` {
     // Parse the type string to get the struct name and parameters
-    const [structName, paramString] = witnessTypeString.split(' ')[0].split('(')
-    const cleanParamString = paramString.slice(0, -1) // remove trailing ')'
+    // Format: "StructType variableName)StructType(param1 name1,param2 name2,...)"
+    const parts = witnessTypeString.split(')')
+
+    // Filter out empty strings and check length
+    const nonEmptyParts = parts.filter(part => part.length > 0)
+    if (nonEmptyParts.length !== 2) {
+      throw new Error(
+        'Invalid witness type string format: missing variable declaration'
+      )
+    }
+
+    const [variableDecl, typeDefinition] = nonEmptyParts
+    const [structName, variableName] = variableDecl.split(' ')
+
+    if (!structName || !variableName) {
+      throw new Error(
+        'Invalid witness type string format: invalid variable declaration'
+      )
+    }
+
+    // Extract parameter string from the type definition
+    const matches = typeDefinition.match(/^(\w+)\((.*?)(?:\)|$)/)
+
+    if (!matches || matches[1] !== structName) {
+      throw new Error(
+        'Invalid witness type string format: struct name mismatch or invalid parameter list'
+      )
+    }
+    const paramString = matches[2]
 
     // Parse parameters into types array
-    const params = cleanParamString.split(',').map(param => {
+    const params = paramString.split(',').map(param => {
       const [type, name] = param.trim().split(' ')
+      if (!type || !name) {
+        throw new Error(
+          'Invalid witness type string format: invalid parameter declaration'
+        )
+      }
       return { type, name }
     })
 
@@ -106,7 +156,7 @@ export class QuoteConfigurationService {
     const typeHash = keccak256(
       encodeAbiParameters(
         [{ type: 'string' }],
-        [`${structName}(${cleanParamString})`]
+        [`${structName}(${params.map(p => p.type).join(',')})`]
       )
     )
 

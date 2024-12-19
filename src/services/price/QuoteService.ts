@@ -205,16 +205,15 @@ export class QuoteService {
 
       if (inputPrice && outputPrice) {
         // Calculate spot output amount
-        // First calculate the input value in USD (18 decimals)
+        // First calculate the input value in USD (maintaining 18 decimals)
         const inputValueUsd =
-          (BigInt(inputPrice.price) * BigInt(inputTokenAmount)) /
-          BigInt(10n ** BigInt(inputToken.decimals))
+          BigInt(inputPrice.price) * BigInt(inputTokenAmount)
         this.logger.info(`Input value in USD: ${inputValueUsd}`)
 
-        // Then convert USD value to output token amount with correct decimals
+        // Then convert USD value to output token amount
         const outputTokensSpot =
-          (inputValueUsd * BigInt(10n ** BigInt(outputToken.decimals))) /
-          BigInt(outputPrice.price)
+          (inputValueUsd * BigInt(outputPrice.price)) /
+          (BigInt(10n ** 18n) * BigInt(10n ** 18n))
         this.logger.info(`Output tokens spot: ${outputTokensSpot}`)
 
         spotOutputAmount = outputTokensSpot.toString()

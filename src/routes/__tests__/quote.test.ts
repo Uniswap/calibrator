@@ -1,220 +1,321 @@
 import { FastifyInstance } from 'fastify'
-import { build } from '../../app.js'
-import { QuoteService } from '../../services/price/QuoteService.js'
-import { CoinGeckoProvider } from '../../services/price/providers/CoinGeckoProvider.js'
-import { UniswapProvider } from '../../services/price/providers/UniswapProvider.js'
-import { Logger } from '../../utils/logger.js'
-import { PriceData } from '../../services/price/interfaces/IPriceProvider.js'
+import { build } from '../../app'
+import { QuoteService } from '../../services/price/QuoteService'
+import { CoinGeckoProvider } from '../../services/price/providers/CoinGeckoProvider'
+import { UniswapProvider } from '../../services/price/providers/UniswapProvider'
+import { PriceData } from '../../services/price/interfaces/IPriceProvider'
+import { Logger } from '../../utils/logger'
 
 // Mock the providers
 jest.mock('../../services/price/providers/CoinGeckoProvider')
 jest.mock('../../services/price/providers/UniswapProvider')
 
-// Mock fetch for asset platforms
-const mockResponse = {
-  ok: true,
-  json: () =>
-    Promise.resolve([
-      { chain_identifier: 1, id: 'ethereum' },
-      { chain_identifier: 137, id: 'polygon-pos' },
-    ]),
-}
-
-// Mock token info response
-const mockTokenInfoResponse = {
-  ok: true,
-  json: () =>
-    Promise.resolve({
-      detail_platforms: {
-        ethereum: {
-          decimal_place: 18,
-        },
-      },
-      symbol: 'TEST',
-    }),
-}
-
-const mockFetch = jest.fn((url: string | URL | Request) => {
-  const urlString = url.toString()
-  if (urlString.includes('asset_platforms')) {
-    return Promise.resolve(mockResponse)
+// Create a mock logger that extends the Logger class
+class MockLogger extends Logger {
+  constructor() {
+    super('test-logger', true)
   }
-  return Promise.resolve(mockTokenInfoResponse)
+
+  error = jest.fn()
+  info = jest.fn()
+  debug = jest.fn()
+}
+
+const mockLogger = new MockLogger()
+
+// Mock fetch for asset platforms and token info
+global.fetch = jest.fn().mockImplementation(url => {
+  const urlStr = url.toString()
+
+  if (urlStr.includes('/asset_platforms')) {
+    return Promise.resolve({
+      ok: true,
+      json: () =>
+        Promise.resolve([
+          {
+            id: 'ethereum',
+            chain_identifier: 1,
+            name: 'Ethereum',
+          },
+          {
+            id: 'optimistic-ethereum',
+            chain_identifier: 10,
+            name: 'Optimism',
+          },
+          {
+            id: 'base',
+            chain_identifier: 8453,
+            name: 'Base',
+          },
+        ]),
+    })
+  }
+
+  // Mock token info response
+  if (urlStr.includes('/coins/')) {
+    // Extract platform and token address from URL
+    const matches = urlStr.match(/\/coins\/([^/]+)\/contract\/([^/]+)/)
+    if (matches) {
+      const [, platform] = matches
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            detail_platforms: {
+              [platform]: { decimal_place: 18 },
+            },
+            symbol: 'TEST',
+          }),
+      })
+    }
+  }
+
+  return Promise.resolve({
+    ok: true,
+    json: () => Promise.resolve({}),
+  })
 })
 
-global.fetch = mockFetch as jest.Mock
+// Get the mock constructors
+const mockCoinGeckoProvider = CoinGeckoProvider as jest.MockedClass<
+  typeof CoinGeckoProvider
+>
+const mockUniswapProvider = UniswapProvider as jest.MockedClass<
+  typeof UniswapProvider
+>
 
 describe('Quote Routes', () => {
   let app: FastifyInstance
-  let mockCoinGeckoProvider: jest.Mocked<CoinGeckoProvider>
-  let mockUniswapProvider: jest.Mocked<UniswapProvider>
   let quoteService: QuoteService
+  let coinGeckoProvider: CoinGeckoProvider
+  let uniswapProvider: UniswapProvider
 
-  const mockPriceData = (price: string): PriceData => ({
-    price,
-    timestamp: Date.now(),
-    source: 'test',
-  })
-
-  beforeEach(async () => {
-    // Reset mocks
-    jest.clearAllMocks()
-
-    // Create mock providers
-    mockCoinGeckoProvider = new CoinGeckoProvider({
-      apiUrl: '',
-      apiKey: '',
-      cacheDurationMs: 0,
-    }) as jest.Mocked<CoinGeckoProvider>
-
-    // Mock getSupportedPlatforms
-    jest
-      .spyOn(mockCoinGeckoProvider, 'getSupportedPlatforms')
-      .mockImplementation(() => Promise.resolve(['ethereum', 'polygon-pos']))
-
-    mockUniswapProvider = new UniswapProvider({
-      apiUrl: '',
-      apiKey: '',
-      cacheDurationMs: 0,
-    }) as jest.Mocked<UniswapProvider>
-
-    // Create QuoteService
-    quoteService = new QuoteService(
-      mockCoinGeckoProvider,
-      mockUniswapProvider,
-      new Logger('QuoteServiceTest')
-    )
-    await quoteService.initialize()
-
-    // Build app with mock dependencies
-    app = await build({
-      coinGeckoProvider: mockCoinGeckoProvider,
-      uniswapProvider: mockUniswapProvider,
-      quoteService: quoteService,
+  beforeAll(async () => {
+    // Create and initialize providers
+    coinGeckoProvider = new CoinGeckoProvider({
+      apiUrl: 'https://pro-api.coingecko.com/api/v3', // Match the URL in app.ts
+      cacheDurationMs: 30000,
+    })
+    uniswapProvider = new UniswapProvider({
+      apiUrl: 'https://api.uniswap.org/v1',
+      cacheDurationMs: 30000,
     })
 
-    // Configure content type parser
-    app.removeAllContentTypeParsers()
-    app.addContentTypeParser(
-      'application/json',
-      { parseAs: 'string' },
-      async (_: unknown, body: string) => {
-        return JSON.parse(body)
-      }
+    // Create QuoteService with mock logger
+    quoteService = new QuoteService(
+      coinGeckoProvider,
+      uniswapProvider,
+      mockLogger
     )
+
+    // Initialize QuoteService before building app
+    await quoteService.initialize()
+
+    // Initialize the app with the initialized QuoteService
+    app = await build({
+      coinGeckoProvider,
+      uniswapProvider,
+      quoteService,
+    })
   })
 
-  afterEach(async () => {
-    await app.close()
+  beforeEach(() => {
+    jest.clearAllMocks()
+    // Mock getSupportedPlatforms to include all needed platforms
+    mockCoinGeckoProvider.prototype.getSupportedPlatforms.mockResolvedValue([
+      'ethereum',
+      'optimistic-ethereum',
+      'base',
+    ])
   })
 
   describe('POST /quote', () => {
-    it('should return quote with both providers successful', async () => {
-      // Mock CoinGecko responses with proper numeric strings
-      mockCoinGeckoProvider.getUsdPrice
-        .mockResolvedValueOnce(mockPriceData('2000000000000000000000')) // 2000 * 10^18
-        .mockResolvedValueOnce(mockPriceData('1000000000000000000')) // 1 * 10^18
-
-      // Mock Uniswap response
-      mockUniswapProvider.getUniswapPrice.mockResolvedValue({
-        ...mockPriceData('2100000000000000000000'), // 2100 * 10^18
-        poolAddress: '0xpool',
-        liquidity: '1000000000000000000',
-      })
-
-      const payload = {
-        inputTokenChainId: 1,
-        inputTokenAddress: '0x1234',
-        inputTokenAmount: '1000000000000000000', // 1 ETH
-        outputTokenChainId: 1,
-        outputTokenAddress: '0x5678',
+    it('should return quote with arbiter configuration for Optimism -> Base', async () => {
+      const mockQuote = {
+        inputTokenAddress: '0x4444444444444444444444444444444444444444',
+        inputTokenChainId: 10,
+        inputTokenAmount: '1000000000000000000',
+        outputTokenAddress: '0x5555555555555555555555555555555555555555',
+        outputTokenChainId: 8453,
+        lockParameters: {
+          allocatorId: '123',
+          resetPeriod: 4,
+          isMultichain: true,
+        },
       }
+
+      // Mock CoinGecko responses with full decimal amounts
+      mockCoinGeckoProvider.prototype.getUsdPrice.mockResolvedValueOnce({
+        price: '1000000000000000000', // 1.0 with 18 decimals
+        lastUpdated: new Date().toISOString(),
+        timestamp: Date.now(),
+        source: 'coingecko',
+      } as PriceData)
+      mockCoinGeckoProvider.prototype.getUsdPrice.mockResolvedValueOnce({
+        price: '900000000000000000', // 0.9 with 18 decimals
+        lastUpdated: new Date().toISOString(),
+        timestamp: Date.now(),
+        source: 'coingecko',
+      } as PriceData)
+
+      // Mock Uniswap responses with full decimal amounts
+      mockUniswapProvider.prototype.getUniswapPrice.mockResolvedValueOnce({
+        price: '1000000000000000000', // 1.0 with 18 decimals
+        lastUpdated: new Date().toISOString(),
+        timestamp: Date.now(),
+        source: 'uniswap',
+      } as PriceData)
+      mockUniswapProvider.prototype.getUniswapPrice.mockResolvedValueOnce({
+        price: '900000000000000000', // 0.9 with 18 decimals
+        lastUpdated: new Date().toISOString(),
+        timestamp: Date.now(),
+        source: 'uniswap',
+      } as PriceData)
 
       const response = await app.inject({
         method: 'POST',
         url: '/quote',
-        payload,
+        payload: mockQuote,
       })
 
       expect(response.statusCode).toBe(200)
       const result = JSON.parse(response.payload)
-      expect(result).toEqual({
-        ...payload,
-        spotOutputAmount: '2000000000000000000000',
-        quoteOutputAmount: '2100000000000000000000',
-        deltaAmount: '100000000000000000000', // 100 * 10^18
-      })
+
+      // Verify arbiter configuration
+      expect(result.arbiterConfiguration).toBeDefined()
+      expect(result.arbiterConfiguration.data.arbiter).toBe(
+        '0x1111111111111111111111111111111111111111'
+      )
+      expect(result.arbiterConfiguration.data.mandate).toBeDefined()
+
+      const mandate = result.arbiterConfiguration.data.mandate
+      expect(mandate.chainId).toBe(mockQuote.outputTokenChainId)
+      expect(mandate.tribunal).toBe(
+        '0x2222222222222222222222222222222222222222'
+      )
+      expect(mandate.token).toBe(mockQuote.outputTokenAddress)
+      expect(mandate.minimumAmount).toBe('891000000000000000') // 99% of output amount (default 100 bips slippage)
+      expect(mandate.salt).toBe(
+        '0x3333333333333333333333333333333333333333333333333333333333333333'
+      )
+
+      // Verify witness hash
+      expect(result.arbiterConfiguration.witnessHash).toMatch(
+        /^0x[a-f0-9]{64}$/
+      )
     })
 
-    it('should validate request payload', async () => {
-      const invalidPayload = {
-        inputTokenChainId: 1,
-        // Missing required fields
-        outputTokenAddress: '0x5678',
+    it('should return 400 for unsupported chain pair', async () => {
+      const mockQuote = {
+        inputTokenAddress: '0x4444444444444444444444444444444444444444',
+        inputTokenChainId: 10,
+        inputTokenAmount: '1000000000000000000',
+        outputTokenAddress: '0x5555555555555555555555555555555555555555',
+        outputTokenChainId: 1, // Ethereum mainnet (unsupported)
       }
+
+      // Mock CoinGecko responses with full decimal amounts
+      mockCoinGeckoProvider.prototype.getUsdPrice.mockResolvedValueOnce({
+        price: '1000000000000000000', // 1.0 with 18 decimals
+        lastUpdated: new Date().toISOString(),
+        timestamp: Date.now(),
+        source: 'coingecko',
+      } as PriceData)
+      mockCoinGeckoProvider.prototype.getUsdPrice.mockResolvedValueOnce({
+        price: '900000000000000000', // 0.9 with 18 decimals
+        lastUpdated: new Date().toISOString(),
+        timestamp: Date.now(),
+        source: 'coingecko',
+      } as PriceData)
+
+      // Mock Uniswap responses with full decimal amounts
+      mockUniswapProvider.prototype.getUniswapPrice.mockResolvedValueOnce({
+        price: '1000000000000000000', // 1.0 with 18 decimals
+        lastUpdated: new Date().toISOString(),
+        timestamp: Date.now(),
+        source: 'uniswap',
+      } as PriceData)
+      mockUniswapProvider.prototype.getUniswapPrice.mockResolvedValueOnce({
+        price: '900000000000000000', // 0.9 with 18 decimals
+        lastUpdated: new Date().toISOString(),
+        timestamp: Date.now(),
+        source: 'uniswap',
+      } as PriceData)
 
       const response = await app.inject({
         method: 'POST',
         url: '/quote',
-        payload: invalidPayload,
+        payload: mockQuote,
       })
+
+      // Log the response for debugging
+      console.log('Response payload:', response.payload)
+      console.log('Logger error calls:', mockLogger.error.mock.calls)
 
       expect(response.statusCode).toBe(400)
+      const result = JSON.parse(response.payload)
+      expect(result.message).toBe('No arbiter found for chain pair 10-1')
     })
 
-    it('should handle provider errors gracefully', async () => {
-      // Mock CoinGecko failure
-      mockCoinGeckoProvider.getUsdPrice.mockRejectedValue(
-        new Error('API error')
-      )
-
-      // Mock Uniswap failure
-      mockUniswapProvider.getUniswapPrice.mockRejectedValue(
-        new Error('No pool found')
-      )
-
-      const payload = {
-        inputTokenChainId: 1,
-        inputTokenAddress: '0x1234',
+    it('should handle custom context parameters', async () => {
+      const mockQuote = {
+        inputTokenAddress: '0x4444444444444444444444444444444444444444',
+        inputTokenChainId: 10,
         inputTokenAmount: '1000000000000000000',
-        outputTokenChainId: 1,
-        outputTokenAddress: '0x5678',
+        outputTokenAddress: '0x5555555555555555555555555555555555555555',
+        outputTokenChainId: 8453,
+        context: {
+          slippageBips: 50,
+          recipient: '0x7777777777777777777777777777777777777777',
+          baselinePriorityFee: '2000000000',
+          scalingFactor: '1000000000200000000',
+        },
       }
+
+      // Mock CoinGecko responses with full decimal amounts
+      mockCoinGeckoProvider.prototype.getUsdPrice.mockResolvedValueOnce({
+        price: '1000000000000000000', // 1.0 with 18 decimals
+        lastUpdated: new Date().toISOString(),
+        timestamp: Date.now(),
+        source: 'coingecko',
+      } as PriceData)
+      mockCoinGeckoProvider.prototype.getUsdPrice.mockResolvedValueOnce({
+        price: '900000000000000000', // 0.9 with 18 decimals
+        lastUpdated: new Date().toISOString(),
+        timestamp: Date.now(),
+        source: 'coingecko',
+      } as PriceData)
+
+      // Mock Uniswap responses with full decimal amounts
+      mockUniswapProvider.prototype.getUniswapPrice.mockResolvedValueOnce({
+        price: '1000000000000000000', // 1.0 with 18 decimals
+        lastUpdated: new Date().toISOString(),
+        timestamp: Date.now(),
+        source: 'uniswap',
+      } as PriceData)
+      mockUniswapProvider.prototype.getUniswapPrice.mockResolvedValueOnce({
+        price: '900000000000000000', // 0.9 with 18 decimals
+        lastUpdated: new Date().toISOString(),
+        timestamp: Date.now(),
+        source: 'uniswap',
+      } as PriceData)
 
       const response = await app.inject({
         method: 'POST',
         url: '/quote',
-        payload,
+        payload: mockQuote,
       })
 
       expect(response.statusCode).toBe(200)
       const result = JSON.parse(response.payload)
-      expect(result).toEqual({
-        ...payload,
-        spotOutputAmount: null,
-        quoteOutputAmount: null,
-        deltaAmount: null,
-      })
-    })
 
-    it('should handle unsupported chains', async () => {
-      const payload = {
-        inputTokenChainId: 999, // Unsupported chain
-        inputTokenAddress: '0x1234',
-        inputTokenAmount: '1000000000000000000',
-        outputTokenChainId: 1,
-        outputTokenAddress: '0x5678',
-      }
-
-      const response = await app.inject({
-        method: 'POST',
-        url: '/quote',
-        payload,
-      })
-
-      expect(response.statusCode).toBe(400)
-      const error = JSON.parse(response.payload)
-      expect(error.error).toBe('Unsupported chain ID: 999')
+      const mandate = result.arbiterConfiguration.data.mandate
+      expect(mandate.recipient).toBe(mockQuote.context.recipient)
+      expect(mandate.minimumAmount).toBe('895500000000000000') // 99.5% of output amount (50 bips slippage)
+      expect(mandate.baselinePriorityFee).toBe(
+        mockQuote.context.baselinePriorityFee
+      )
+      expect(mandate.scalingFactor).toBe(mockQuote.context.scalingFactor)
     })
   })
 })
