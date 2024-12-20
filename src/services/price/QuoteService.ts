@@ -205,18 +205,43 @@ export class QuoteService {
 
       if (inputPrice && outputPrice) {
         // Calculate spot output amount
-        // First calculate the input value in USD (maintaining 18 decimals)
+        const inputPriceBigInt = BigInt(inputPrice.price)
+        const outputPriceBigInt = BigInt(outputPrice.price)
+        const inputAmountBigInt = BigInt(inputTokenAmount)
+
+        // First normalize input amount to 18 decimals if needed
+        let normalizedInputAmount: bigint
+        if (inputToken.decimals < 18) {
+          const scale = BigInt(10 ** (18 - inputToken.decimals))
+          normalizedInputAmount = inputAmountBigInt * scale
+          this.logger.info(
+            `Normalized input amount (scaled up): ${normalizedInputAmount}`
+          )
+        } else if (inputToken.decimals > 18) {
+          const scale = BigInt(10 ** (inputToken.decimals - 18))
+          normalizedInputAmount = inputAmountBigInt / scale
+          this.logger.info(
+            `Normalized input amount (scaled down): ${normalizedInputAmount}`
+          )
+        } else {
+          normalizedInputAmount = inputAmountBigInt
+          this.logger.info(
+            `Input amount already normalized: ${normalizedInputAmount}`
+          )
+        }
+
+        // Calculate USD value (in 18 decimals)
         const inputValueUsd =
-          BigInt(inputPrice.price) * BigInt(inputTokenAmount)
+          (normalizedInputAmount * inputPriceBigInt) / BigInt(10n ** 18n)
         this.logger.info(`Input value in USD: ${inputValueUsd}`)
 
-        // Then convert USD value to output token amount
-        const outputTokensSpot =
-          (inputValueUsd * BigInt(outputPrice.price)) /
-          (BigInt(10n ** 18n) * BigInt(10n ** 18n))
-        this.logger.info(`Output tokens spot: ${outputTokensSpot}`)
+        // Calculate output amount in output token's decimals
+        const outputAmount =
+          (inputValueUsd * BigInt(10n ** BigInt(outputToken.decimals))) /
+          outputPriceBigInt
 
-        spotOutputAmount = outputTokensSpot.toString()
+        this.logger.info(`Raw output amount: ${outputAmount}`)
+        spotOutputAmount = outputAmount.toString()
       }
     } catch (error) {
       this.logger.error(`Error fetching spot prices: ${error}`)

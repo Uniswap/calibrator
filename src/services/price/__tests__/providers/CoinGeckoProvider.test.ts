@@ -247,7 +247,7 @@ describe('CoinGeckoProvider', () => {
       const result = await provider.getPrice(ethToken, usdcToken)
 
       // Assert
-      expect(result.price).toBe('4000000000000000000000') // 4000 in wei (ETH/USDC price)
+      expect(result.price).toBe('4000000000') // 4000 USDC (with 6 decimals)
       expect(result.source).toBe('coingecko')
     })
   })

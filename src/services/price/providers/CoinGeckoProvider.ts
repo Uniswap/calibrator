@@ -230,18 +230,32 @@ export class CoinGeckoProvider implements ICoinGeckoProvider {
 
       this.logger.info(`Token A (${tokenA.address}) price: ${priceA.price}`)
       this.logger.info(`Token B (${tokenB.address}) price: ${priceB.price}`)
+      this.logger.info(`Token A decimals: ${tokenA.decimals}`)
+      this.logger.info(`Token B decimals: ${tokenB.decimals}`)
 
       // Calculate price of tokenA in terms of tokenB
       const priceABigInt = BigInt(priceA.price)
       const priceBBigInt = BigInt(priceB.price)
 
-      const price = ((priceABigInt * BigInt(1e18)) / priceBBigInt).toString()
+      // Calculate the raw price ratio first
+      const rawPrice = (priceABigInt * BigInt(1e18)) / priceBBigInt
 
-      this.logger.info(
-        `Calculated price ${tokenA.address}/${tokenB.address}: ${price}`
-      )
+      this.logger.info(`Raw price ratio: ${rawPrice}`)
+
+      // Now adjust for the decimal difference
+      const decimalDiff = tokenA.decimals - tokenB.decimals
+      this.logger.info(`Decimal difference (A - B): ${decimalDiff}`)
+
+      // Adjust the price to account for the decimal difference
+      const adjustedPrice =
+        decimalDiff > 0
+          ? rawPrice / BigInt(10n ** BigInt(decimalDiff))
+          : rawPrice * BigInt(10n ** BigInt(-decimalDiff))
+
+      this.logger.info(`Adjusted price: ${adjustedPrice}`)
+
       return {
-        price,
+        price: adjustedPrice.toString(),
         timestamp: Date.now(),
         source: 'coingecko',
       }

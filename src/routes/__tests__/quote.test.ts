@@ -144,29 +144,29 @@ describe('Quote Routes', () => {
         },
       }
 
-      // Mock CoinGecko responses with full decimal amounts
+      // Mock CoinGecko responses
       mockCoinGeckoProvider.prototype.getUsdPrice.mockResolvedValueOnce({
-        price: '1000000000000000000', // 1.0 with 18 decimals
+        price: '2000000000000000000', // 2.0 USD with 18 decimals
         lastUpdated: new Date().toISOString(),
         timestamp: Date.now(),
         source: 'coingecko',
       } as PriceData)
       mockCoinGeckoProvider.prototype.getUsdPrice.mockResolvedValueOnce({
-        price: '900000000000000000', // 0.9 with 18 decimals
+        price: '1000000000000000000', // 1.0 USD with 18 decimals
         lastUpdated: new Date().toISOString(),
         timestamp: Date.now(),
         source: 'coingecko',
       } as PriceData)
 
-      // Mock Uniswap responses with full decimal amounts
+      // Mock Uniswap responses
       mockUniswapProvider.prototype.getUniswapPrice.mockResolvedValueOnce({
-        price: '1000000000000000000', // 1.0 with 18 decimals
+        price: '2000000000000000000', // 2.0 with 18 decimals
         lastUpdated: new Date().toISOString(),
         timestamp: Date.now(),
         source: 'uniswap',
       } as PriceData)
       mockUniswapProvider.prototype.getUniswapPrice.mockResolvedValueOnce({
-        price: '900000000000000000', // 0.9 with 18 decimals
+        price: '1000000000000000000', // 1.0 with 18 decimals
         lastUpdated: new Date().toISOString(),
         timestamp: Date.now(),
         source: 'uniswap',
@@ -194,7 +194,10 @@ describe('Quote Routes', () => {
         '0x2222222222222222222222222222222222222222'
       )
       expect(mandate.token).toBe(mockQuote.outputTokenAddress)
-      expect(mandate.minimumAmount).toBe('891000000000000000') // 99% of output amount (default 100 bips slippage)
+      // With input amount 1.0, input price 2.0 USD, and output price 1.0 USD
+      // Output amount should be 2.0 tokens
+      // With 100 bips (1%) slippage, minimum amount should be 1.98 tokens
+      expect(mandate.minimumAmount).toBe('1980000000000000000')
       expect(mandate.salt).toBe(
         '0x3333333333333333333333333333333333333333333333333333333333333333'
       )
@@ -214,29 +217,29 @@ describe('Quote Routes', () => {
         outputTokenChainId: 1, // Ethereum mainnet (unsupported)
       }
 
-      // Mock CoinGecko responses with full decimal amounts
+      // Mock CoinGecko responses
       mockCoinGeckoProvider.prototype.getUsdPrice.mockResolvedValueOnce({
-        price: '1000000000000000000', // 1.0 with 18 decimals
+        price: '2000000000000000000', // 2.0 USD with 18 decimals
         lastUpdated: new Date().toISOString(),
         timestamp: Date.now(),
         source: 'coingecko',
       } as PriceData)
       mockCoinGeckoProvider.prototype.getUsdPrice.mockResolvedValueOnce({
-        price: '900000000000000000', // 0.9 with 18 decimals
+        price: '1000000000000000000', // 1.0 USD with 18 decimals
         lastUpdated: new Date().toISOString(),
         timestamp: Date.now(),
         source: 'coingecko',
       } as PriceData)
 
-      // Mock Uniswap responses with full decimal amounts
+      // Mock Uniswap responses
       mockUniswapProvider.prototype.getUniswapPrice.mockResolvedValueOnce({
-        price: '1000000000000000000', // 1.0 with 18 decimals
+        price: '2000000000000000000', // 2.0 with 18 decimals
         lastUpdated: new Date().toISOString(),
         timestamp: Date.now(),
         source: 'uniswap',
       } as PriceData)
       mockUniswapProvider.prototype.getUniswapPrice.mockResolvedValueOnce({
-        price: '900000000000000000', // 0.9 with 18 decimals
+        price: '1000000000000000000', // 1.0 with 18 decimals
         lastUpdated: new Date().toISOString(),
         timestamp: Date.now(),
         source: 'uniswap',
@@ -272,29 +275,29 @@ describe('Quote Routes', () => {
         },
       }
 
-      // Mock CoinGecko responses with full decimal amounts
+      // Mock CoinGecko responses
       mockCoinGeckoProvider.prototype.getUsdPrice.mockResolvedValueOnce({
-        price: '1000000000000000000', // 1.0 with 18 decimals
+        price: '2000000000000000000', // 2.0 USD with 18 decimals
         lastUpdated: new Date().toISOString(),
         timestamp: Date.now(),
         source: 'coingecko',
       } as PriceData)
       mockCoinGeckoProvider.prototype.getUsdPrice.mockResolvedValueOnce({
-        price: '900000000000000000', // 0.9 with 18 decimals
+        price: '1000000000000000000', // 1.0 USD with 18 decimals
         lastUpdated: new Date().toISOString(),
         timestamp: Date.now(),
         source: 'coingecko',
       } as PriceData)
 
-      // Mock Uniswap responses with full decimal amounts
+      // Mock Uniswap responses
       mockUniswapProvider.prototype.getUniswapPrice.mockResolvedValueOnce({
-        price: '1000000000000000000', // 1.0 with 18 decimals
+        price: '2000000000000000000', // 2.0 with 18 decimals
         lastUpdated: new Date().toISOString(),
         timestamp: Date.now(),
         source: 'uniswap',
       } as PriceData)
       mockUniswapProvider.prototype.getUniswapPrice.mockResolvedValueOnce({
-        price: '900000000000000000', // 0.9 with 18 decimals
+        price: '1000000000000000000', // 1.0 with 18 decimals
         lastUpdated: new Date().toISOString(),
         timestamp: Date.now(),
         source: 'uniswap',
@@ -311,7 +314,10 @@ describe('Quote Routes', () => {
 
       const mandate = result.arbiterConfiguration.data.mandate
       expect(mandate.recipient).toBe(mockQuote.context.recipient)
-      expect(mandate.minimumAmount).toBe('895500000000000000') // 99.5% of output amount (50 bips slippage)
+      // With input amount 1.0, input price 2.0 USD, and output price 1.0 USD
+      // Output amount should be 2.0 tokens
+      // With 50 bips (0.5%) slippage, minimum amount should be 1.99 tokens
+      expect(mandate.minimumAmount).toBe('1990000000000000000')
       expect(mandate.baselinePriorityFee).toBe(
         mockQuote.context.baselinePriorityFee
       )
