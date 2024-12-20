@@ -9,6 +9,8 @@ import {
 } from '../types/uniswap.js'
 import { Logger } from '../../../utils/logger.js'
 
+const NATIVE_TOKEN = '0x0000000000000000000000000000000000000000'
+
 export class UniswapProvider implements IUniswapProvider {
   private config: UniswapConfig
   private logger: Logger
@@ -89,10 +91,30 @@ export class UniswapProvider implements IUniswapProvider {
     try {
       // Use 1 ETH as the default amount if not specified
       const defaultAmount = '1000000000000000000' // 1 ETH in wei
+      const inputAmount = amount || defaultAmount
+
+      // If both tokens are native (address(0)), return the input amount as is
+      if (
+        tokenIn.address === NATIVE_TOKEN &&
+        tokenOut.address === NATIVE_TOKEN
+      ) {
+        return {
+          price: inputAmount,
+          source: 'uniswap',
+          timestamp: Date.now(),
+        }
+      }
+
+      // If on different chains, handle cross-chain quote
+      if (tokenIn.chainId !== tokenOut.chainId) {
+        return this.getCrossChainPrice(tokenIn, tokenOut, inputAmount)
+      }
+
+      // Same chain quote
       const quote = await this.fetchIndicativeQuote(
         tokenIn,
         tokenOut,
-        amount || defaultAmount
+        inputAmount
       )
 
       if (!quote?.output?.amount) {
@@ -107,6 +129,59 @@ export class UniswapProvider implements IUniswapProvider {
     } catch (error) {
       this.logger.error(`Error fetching Uniswap price: ${error}`)
       throw error
+    }
+  }
+
+  private async getCrossChainPrice(
+    tokenIn: Token,
+    tokenOut: Token,
+    amount: string
+  ): Promise<PriceData & { poolAddress?: string; liquidity?: string }> {
+    // Create native token objects for both chains
+    const nativeTokenIn: Token = {
+      ...tokenIn,
+      address: NATIVE_TOKEN,
+    }
+    const nativeTokenOut: Token = {
+      ...tokenOut,
+      address: NATIVE_TOKEN,
+    }
+
+    let firstQuoteAmount: string | undefined
+    let secondQuoteAmount: string | undefined
+
+    // Handle input side if not native
+    if (tokenIn.address !== NATIVE_TOKEN) {
+      const inputQuote = await this.fetchIndicativeQuote(
+        tokenIn,
+        nativeTokenIn,
+        amount
+      )
+      firstQuoteAmount = inputQuote.output.amount
+    } else {
+      firstQuoteAmount = amount
+    }
+
+    // Handle output side if not native
+    if (tokenOut.address !== NATIVE_TOKEN) {
+      const outputQuote = await this.fetchIndicativeQuote(
+        nativeTokenOut,
+        tokenOut,
+        firstQuoteAmount
+      )
+      secondQuoteAmount = outputQuote.output.amount
+    } else {
+      secondQuoteAmount = firstQuoteAmount
+    }
+
+    if (!secondQuoteAmount) {
+      throw new Error('Failed to calculate cross-chain quote')
+    }
+
+    return {
+      price: secondQuoteAmount,
+      source: 'uniswap',
+      timestamp: Date.now(),
     }
   }
 }

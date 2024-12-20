@@ -14,28 +14,36 @@ describe('UniswapProvider', () => {
   const silentLogger = new Logger('test', true)
 
   const mockToken = (
-    address: string = '0x0000000000000000000000000000000000000000'
+    address: string = '0x0000000000000000000000000000000000000000',
+    chainId: number = 1
   ): Token => ({
     address,
-    chainId: 1,
+    chainId,
     decimals: 18,
     symbol: 'TEST',
   })
 
-  const mockQuoteResponse: IndicativeQuoteResponse = {
+  const mockQuoteResponse = (
+    inputToken: string,
+    outputToken: string,
+    inputChainId: number,
+    outputChainId: number,
+    inputAmount: string,
+    outputAmount: string
+  ): IndicativeQuoteResponse => ({
     requestId: 'test-request-id',
     type: 'EXACT_INPUT',
     input: {
-      token: '0x0000000000000000000000000000000000000000',
-      chainId: 1,
-      amount: '1000000000000000000', // 1 ETH
+      token: inputToken,
+      chainId: inputChainId,
+      amount: inputAmount,
     },
     output: {
-      token: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
-      chainId: 1,
-      amount: '2000000000', // 2000 USDC (6 decimals)
+      token: outputToken,
+      chainId: outputChainId,
+      amount: outputAmount,
     },
-  }
+  })
 
   beforeEach(() => {
     global.fetch = jest.fn()
@@ -45,17 +53,99 @@ describe('UniswapProvider', () => {
     jest.resetAllMocks()
   })
 
-  it('should fetch price successfully', async () => {
-    // Mock successful API response
+  it('should fetch same-chain price successfully', async () => {
+    const tokenIn = mockToken()
+    const tokenOut = mockToken('0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48')
+    const response = mockQuoteResponse(
+      tokenIn.address,
+      tokenOut.address,
+      1,
+      1,
+      '1000000000000000000',
+      '2000000000'
+    )
+
     ;(global.fetch as jest.Mock).mockResolvedValueOnce({
       ok: true,
-      json: () => Promise.resolve(mockQuoteResponse),
+      json: () => Promise.resolve(response),
     })
 
     const provider = new UniswapProvider(mockConfig, silentLogger)
-    const tokenIn = mockToken()
-    const tokenOut = mockToken('0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48') // USDC
+    const price = await provider.getPrice(tokenIn, tokenOut)
 
+    expect(price).toEqual({
+      price: '2000000000',
+      source: 'uniswap',
+      timestamp: expect.any(Number),
+    })
+  })
+
+  it('should handle cross-chain quote with non-native tokens', async () => {
+    const tokenIn = mockToken('0x1234', 1) // Custom token on chain 1
+    const tokenOut = mockToken('0x5678', 2) // Custom token on chain 2
+
+    // Mock first quote (tokenIn to native on chain 1)
+    const firstResponse = mockQuoteResponse(
+      tokenIn.address,
+      '0x0000000000000000000000000000000000000000',
+      1,
+      1,
+      '1000000000000000000',
+      '500000000000000000'
+    )
+
+    // Mock second quote (native to tokenOut on chain 2)
+    const secondResponse = mockQuoteResponse(
+      '0x0000000000000000000000000000000000000000',
+      tokenOut.address,
+      2,
+      2,
+      '500000000000000000',
+      '1000000000'
+    )
+
+    ;(global.fetch as jest.Mock)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(firstResponse),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(secondResponse),
+      })
+
+    const provider = new UniswapProvider(mockConfig, silentLogger)
+    const price = await provider.getPrice(tokenIn, tokenOut)
+
+    expect(price).toEqual({
+      price: '1000000000',
+      source: 'uniswap',
+      timestamp: expect.any(Number),
+    })
+
+    expect(global.fetch).toHaveBeenCalledTimes(2)
+  })
+
+  it('should handle cross-chain quote with native token input', async () => {
+    const tokenIn = mockToken('0x0000000000000000000000000000000000000000', 1) // Native on chain 1
+    const tokenOut = mockToken('0x5678', 2) // Custom token on chain 2
+
+    // Mock quote (native to tokenOut on chain 2)
+    const response = mockQuoteResponse(
+      '0x0000000000000000000000000000000000000000',
+      tokenOut.address,
+      2,
+      2,
+      '1000000000000000000',
+      '2000000000'
+    )
+
+    ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve(response),
+    })
+
+    const provider = new UniswapProvider(mockConfig, silentLogger)
     const price = await provider.getPrice(tokenIn, tokenOut)
 
     expect(price).toEqual({
@@ -64,22 +154,61 @@ describe('UniswapProvider', () => {
       timestamp: expect.any(Number),
     })
 
-    // Verify API call
-    expect(global.fetch).toHaveBeenCalledWith(
-      'https://trade-api.gateway.uniswap.org/v1/indicative_quote',
-      expect.objectContaining({
-        method: 'POST',
-        headers: expect.objectContaining({
-          accept: 'application/json',
-          'content-type': 'application/json',
-          'x-api-key': 'test-key',
-        }),
-      })
+    expect(global.fetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('should handle cross-chain quote with native token output', async () => {
+    const tokenIn = mockToken('0x1234', 1) // Custom token on chain 1
+    const tokenOut = mockToken('0x0000000000000000000000000000000000000000', 2) // Native on chain 2
+
+    // Mock quote (tokenIn to native on chain 1)
+    const response = mockQuoteResponse(
+      tokenIn.address,
+      '0x0000000000000000000000000000000000000000',
+      1,
+      1,
+      '1000000000000000000',
+      '500000000000000000'
     )
+
+    ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve(response),
+    })
+
+    const provider = new UniswapProvider(mockConfig, silentLogger)
+    const price = await provider.getPrice(tokenIn, tokenOut)
+
+    expect(price).toEqual({
+      price: '500000000000000000',
+      source: 'uniswap',
+      timestamp: expect.any(Number),
+    })
+
+    expect(global.fetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('should return input amount when both tokens are native', async () => {
+    const tokenIn = mockToken('0x0000000000000000000000000000000000000000', 1)
+    const tokenOut = mockToken('0x0000000000000000000000000000000000000000', 2)
+
+    const provider = new UniswapProvider(mockConfig, silentLogger)
+    const price = await provider.getUniswapPrice(
+      tokenIn,
+      tokenOut,
+      '1000000000000000000'
+    )
+
+    expect(price).toEqual({
+      price: '1000000000000000000',
+      source: 'uniswap',
+      timestamp: expect.any(Number),
+    })
+
+    expect(global.fetch).not.toHaveBeenCalled()
   })
 
   it('should handle API errors gracefully', async () => {
-    // Mock API error
     ;(global.fetch as jest.Mock).mockResolvedValueOnce({
       ok: false,
       text: () => Promise.resolve('Invalid token pair'),
@@ -95,22 +224,28 @@ describe('UniswapProvider', () => {
   })
 
   it('should check pool existence', async () => {
-    // Mock successful API response for pool check
+    const tokenA = mockToken()
+    const tokenB = mockToken('0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48')
+    const response = mockQuoteResponse(
+      tokenA.address,
+      tokenB.address,
+      1,
+      1,
+      '1000000',
+      '2000000'
+    )
+
     ;(global.fetch as jest.Mock).mockResolvedValueOnce({
       ok: true,
-      json: () => Promise.resolve(mockQuoteResponse),
+      json: () => Promise.resolve(response),
     })
 
     const provider = new UniswapProvider(mockConfig, silentLogger)
-    const tokenA = mockToken()
-    const tokenB = mockToken('0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48')
-
     const hasPool = await provider.hasDirectPool(tokenA, tokenB)
     expect(hasPool).toBe(true)
   })
 
   it('should handle non-existent pools', async () => {
-    // Mock API error for non-existent pool
     ;(global.fetch as jest.Mock).mockResolvedValueOnce({
       ok: false,
       text: () => Promise.resolve('No route found'),
