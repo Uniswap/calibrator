@@ -7,6 +7,17 @@ import { Logger } from '../../../utils/logger.js'
 
 const ETH_ADDRESS = '0x0000000000000000000000000000000000000000'
 
+// Map chain IDs to CoinGecko platform IDs and their native token IDs
+const CHAIN_TO_PLATFORM: Record<
+  number,
+  { platform: string; nativeToken: string }
+> = {
+  1: { platform: 'ethereum', nativeToken: 'ethereum' },
+  10: { platform: 'optimistic-ethereum', nativeToken: 'ethereum' },
+  8453: { platform: 'base', nativeToken: 'ethereum' },
+  // Add more chains as needed
+}
+
 class CoinGeckoError extends Error {
   constructor(
     message: string,
@@ -62,9 +73,7 @@ export class CoinGeckoProvider implements ICoinGeckoProvider {
           errorMessage = response.statusText
         }
 
-        throw new CoinGeckoError(
-          `${errorContext}: ${errorMessage} (${response.status})`
-        )
+        throw new CoinGeckoError(`${errorContext}: ${errorMessage}`)
       }
 
       const data = await response.json()
@@ -85,18 +94,22 @@ export class CoinGeckoProvider implements ICoinGeckoProvider {
   }
 
   private validateEthPriceResponse(
-    data: unknown
-  ): asserts data is { ethereum: { usd: number } } {
+    data: unknown,
+    nativeToken: string
+  ): asserts data is { [key: string]: { usd: number } } {
     if (!data || typeof data !== 'object') {
       throw new CoinGeckoError(
-        'Invalid ETH price response format: not an object'
+        'Invalid native token price response format: not an object'
       )
     }
 
-    const { ethereum } = data as { ethereum?: { usd?: unknown } }
-    if (!ethereum?.usd || typeof ethereum.usd !== 'number') {
+    const priceObj = data as { [key: string]: { usd?: unknown } }
+    if (
+      !priceObj[nativeToken]?.usd ||
+      typeof priceObj[nativeToken].usd !== 'number'
+    ) {
       throw new CoinGeckoError(
-        'Invalid ETH price response format: missing or invalid price'
+        'Invalid native token price response format: missing or invalid price'
       )
     }
   }
@@ -119,6 +132,17 @@ export class CoinGeckoProvider implements ICoinGeckoProvider {
     }
   }
 
+  private getPlatformInfo(chainId: number): {
+    platform: string
+    nativeToken: string
+  } {
+    const info = CHAIN_TO_PLATFORM[chainId]
+    if (!info) {
+      throw new CoinGeckoError(`Unsupported chain ID: ${chainId}`)
+    }
+    return info
+  }
+
   async getUsdPrice(token: Token): Promise<PriceData> {
     this.logger.info(
       `Getting USD price for token ${token.address} on chain ${token.chainId}`
@@ -135,25 +159,25 @@ export class CoinGeckoProvider implements ICoinGeckoProvider {
     }
 
     try {
-      if (token.chainId !== 1) {
-        throw new CoinGeckoError(`Unsupported chain ID: ${token.chainId}`)
-      }
+      const { platform, nativeToken } = this.getPlatformInfo(token.chainId)
 
       if (token.address === ETH_ADDRESS) {
-        this.logger.info('Fetching ETH price')
-        const url = `${this.baseUrl}/simple/price?ids=ethereum&vs_currencies=usd`
+        this.logger.info(`Fetching native token price for ${platform}`)
+        const url = `${this.baseUrl}/simple/price?ids=${nativeToken}&vs_currencies=usd`
         this.logger.info(`CoinGecko request URL: ${url}`)
 
         const data = await this.makeRequest<unknown>(
           url,
           'Failed to fetch ETH price'
         )
-        this.validateEthPriceResponse(data)
-        this.logger.info(`Received ETH price data: ${JSON.stringify(data)}`)
+        this.validateEthPriceResponse(data, nativeToken)
+        this.logger.info(
+          `Received native token price data: ${JSON.stringify(data)}`
+        )
 
         const timestamp = Date.now()
         const priceData = {
-          price: this.convertUsdToWei(data.ethereum.usd),
+          price: this.convertUsdToWei(data[nativeToken].usd),
           timestamp,
           source: 'coingecko',
         }
@@ -163,7 +187,7 @@ export class CoinGeckoProvider implements ICoinGeckoProvider {
         return priceData
       } else {
         this.logger.info(`Fetching price for token ${token.address}`)
-        const url = `${this.baseUrl}/simple/token_price/ethereum?contract_addresses=${token.address}&vs_currencies=usd`
+        const url = `${this.baseUrl}/simple/token_price/${platform}?contract_addresses=${token.address}&vs_currencies=usd`
         this.logger.info(`CoinGecko request URL: ${url}`)
 
         const data = await this.makeRequest<unknown>(

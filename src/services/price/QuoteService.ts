@@ -231,21 +231,20 @@ export class QuoteService {
         inputTokenAmount
       )
       quoteOutputAmount = quote.price
+
+      // Only calculate delta if we have both spot and quote prices
+      if (spotOutputAmount !== null) {
+        const delta = BigInt(quoteOutputAmount) - BigInt(spotOutputAmount)
+        deltaAmount = delta.toString()
+      }
+
       this.logger.info(`Uniswap quote amount: ${quoteOutputAmount}`)
+      this.logger.info(`Calculated delta: ${deltaAmount}`)
     } catch (error) {
       this.logger.error(`Error fetching Uniswap quote: ${error}`)
-    }
-
-    // Calculate delta if both prices are available
-    if (spotOutputAmount !== null && quoteOutputAmount !== null) {
-      // Both amounts are in output token's decimals
-      const delta = BigInt(quoteOutputAmount) - BigInt(spotOutputAmount)
-      deltaAmount = delta.toString()
-      this.logger.info(`Calculated delta: ${deltaAmount}`)
-    } else {
-      this.logger.error(
-        `Could not calculate delta: spotOutputAmount=${spotOutputAmount}, quoteOutputAmount=${quoteOutputAmount}`
-      )
+      // If Uniswap fails, set quote and delta to null
+      quoteOutputAmount = null
+      deltaAmount = null
     }
 
     return {

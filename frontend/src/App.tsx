@@ -13,18 +13,37 @@ interface HealthStatus {
   timestamp: string
 }
 
+interface LockParameters {
+  allocatorId: string
+  resetPeriod: number
+  isMultichain: boolean
+}
+
+interface QuoteContext {
+  slippageBips?: number
+  recipient?: string
+  baselinePriorityFee?: string
+  scalingFactor?: string
+  expires?: string
+}
+
 interface QuoteRequest {
   inputTokenChainId: number
   inputTokenAddress: string
   inputTokenAmount: string
   outputTokenChainId: number
   outputTokenAddress: string
+  sponsor?: string
+  duration?: number
+  lockParameters?: LockParameters
+  context?: QuoteContext
 }
 
 interface QuoteResponse extends QuoteRequest {
   spotOutputAmount: string | null
   quoteOutputAmount: string | null
   deltaAmount: string | null
+  arbiterConfiguration: Record<string, any>
 }
 
 // Initial timestamp from the provided time
@@ -52,6 +71,16 @@ function QuoteForm() {
     inputTokenAmount: '',
     outputTokenChainId: 0,
     outputTokenAddress: '',
+    sponsor: '0x0000000000000000000000000000000000000000',
+    duration: 3600,
+    lockParameters: {
+      allocatorId: '0',
+      resetPeriod: 0,
+      isMultichain: false,
+    },
+    context: {
+      slippageBips: 30,
+    },
   })
 
   const quoteMutation = useMutation<QuoteResponse, Error, QuoteRequest>(
@@ -171,6 +200,206 @@ function QuoteForm() {
           </div>
         </div>
 
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              Sponsor Address
+            </label>
+            <input
+              type="text"
+              value={formData.sponsor}
+              onChange={e =>
+                setFormData({ ...formData, sponsor: e.target.value })
+              }
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              Duration (seconds)
+            </label>
+            <input
+              type="number"
+              value={formData.duration}
+              onChange={e =>
+                setFormData({
+                  ...formData,
+                  duration: parseInt(e.target.value) || 3600,
+                })
+              }
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            />
+          </div>
+        </div>
+
+        <div className="border-t pt-4">
+          <h4 className="text-sm font-medium text-gray-700 mb-2">
+            Lock Parameters
+          </h4>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Allocator ID
+              </label>
+              <input
+                type="text"
+                value={formData.lockParameters?.allocatorId}
+                onChange={e =>
+                  setFormData({
+                    ...formData,
+                    lockParameters: {
+                      ...formData.lockParameters!,
+                      allocatorId: e.target.value,
+                    },
+                  })
+                }
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Reset Period
+              </label>
+              <input
+                type="number"
+                value={formData.lockParameters?.resetPeriod}
+                onChange={e =>
+                  setFormData({
+                    ...formData,
+                    lockParameters: {
+                      ...formData.lockParameters!,
+                      resetPeriod: parseInt(e.target.value) || 0,
+                    },
+                  })
+                }
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+          <div className="mt-2">
+            <label className="flex items-center">
+              <input
+                type="checkbox"
+                checked={formData.lockParameters?.isMultichain}
+                onChange={e =>
+                  setFormData({
+                    ...formData,
+                    lockParameters: {
+                      ...formData.lockParameters!,
+                      isMultichain: e.target.checked,
+                    },
+                  })
+                }
+                className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+              />
+              <span className="ml-2 text-sm text-gray-600">Is Multichain</span>
+            </label>
+          </div>
+        </div>
+
+        <div className="border-t pt-4">
+          <h4 className="text-sm font-medium text-gray-700 mb-2">Context</h4>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Slippage (BIPS)
+              </label>
+              <input
+                type="number"
+                value={formData.context?.slippageBips}
+                onChange={e =>
+                  setFormData({
+                    ...formData,
+                    context: {
+                      ...formData.context!,
+                      slippageBips: parseInt(e.target.value) || 30,
+                    },
+                  })
+                }
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Recipient
+              </label>
+              <input
+                type="text"
+                value={formData.context?.recipient}
+                onChange={e =>
+                  setFormData({
+                    ...formData,
+                    context: {
+                      ...formData.context!,
+                      recipient: e.target.value,
+                    },
+                  })
+                }
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4 mt-2">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Baseline Priority Fee
+              </label>
+              <input
+                type="text"
+                value={formData.context?.baselinePriorityFee}
+                onChange={e =>
+                  setFormData({
+                    ...formData,
+                    context: {
+                      ...formData.context!,
+                      baselinePriorityFee: e.target.value,
+                    },
+                  })
+                }
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Scaling Factor
+              </label>
+              <input
+                type="text"
+                value={formData.context?.scalingFactor}
+                onChange={e =>
+                  setFormData({
+                    ...formData,
+                    context: {
+                      ...formData.context!,
+                      scalingFactor: e.target.value,
+                    },
+                  })
+                }
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+          <div className="mt-2">
+            <label className="block text-sm font-medium text-gray-700">
+              Expires
+            </label>
+            <input
+              type="text"
+              value={formData.context?.expires}
+              onChange={e =>
+                setFormData({
+                  ...formData,
+                  context: {
+                    ...formData.context!,
+                    expires: e.target.value,
+                  },
+                })
+              }
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            />
+          </div>
+        </div>
+
         <div className="flex justify-between items-center">
           <button
             type="submit"
@@ -206,6 +435,16 @@ function QuoteForm() {
               <span className="font-medium">Delta Amount:</span>{' '}
               {quoteMutation.data.deltaAmount || 'N/A'}
             </p>
+            <div className="mt-4">
+              <h4 className="font-medium mb-2">Arbiter Configuration:</h4>
+              <pre className="bg-gray-100 p-2 rounded overflow-auto text-xs">
+                {JSON.stringify(
+                  quoteMutation.data.arbiterConfiguration,
+                  null,
+                  2
+                )}
+              </pre>
+            </div>
           </div>
         </div>
       )}
