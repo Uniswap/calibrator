@@ -19,7 +19,7 @@ const resolverTemplate = (
     : BigInt(Math.floor(Date.now() / 1000) + duration),
   token: quote.outputTokenAddress,
   minimumAmount:
-    (BigInt(quote.outputTokenAmount) *
+    (BigInt(quote.outputAmountNet) *
       BigInt(10000 - (context.slippageBips || 100))) /
     10000n,
   baselinePriorityFee: context.baselinePriorityFee

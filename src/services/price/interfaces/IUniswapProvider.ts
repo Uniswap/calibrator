@@ -26,8 +26,14 @@ export interface IUniswapProvider {
   getUniswapPrice(
     tokenA: Token,
     tokenB: Token,
-    amount?: string
-  ): Promise<PriceData & { poolAddress?: string; liquidity?: string }>
+    amount?: string,
+    dispensationAmount?: string
+  ): Promise<PriceData & {
+    poolAddress?: string;
+    liquidity?: string;
+    outputAmountDirect?: string;
+    outputAmountNet?: string;
+  }>
 
   /**
    * Check if a direct Uniswap pool exists for the pair

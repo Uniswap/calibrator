@@ -12,7 +12,8 @@ export interface Quote {
   inputTokenAddress: string
   outputTokenAddress: string
   inputTokenAmount: string
-  outputTokenAmount: string
+  outputAmountDirect: string
+  outputAmountNet: string
   tribunalQuote: string | null
   tribunalQuoteUsd: string | null
 }
@@ -76,7 +77,8 @@ export interface QuoteResponse {
   outputTokenChainId: number
   outputTokenAddress: string
   spotOutputAmount: string | null
-  quoteOutputAmount: string | null
+  quoteOutputAmountDirect: string | null
+  quoteOutputAmountNet: string | null
   deltaAmount: string | null
   tribunalQuote: string | null
   tribunalQuoteUsd: string | null

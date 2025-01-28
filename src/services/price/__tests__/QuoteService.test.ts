@@ -157,6 +157,8 @@ describe('QuoteService', () => {
       ...mockPriceData('2100000000000000000000'), // 2100 * 10^18
       poolAddress: '0xpool',
       liquidity: '1000000000000000000',
+      outputAmountDirect: '2100000000000000000000',
+      outputAmountNet: '2100000000000000000000',
     })
 
     const result = await quoteService.getQuote(mockRequest)
@@ -164,8 +166,9 @@ describe('QuoteService', () => {
     expect(result).toEqual({
       ...mockRequest,
       spotOutputAmount: '2000000000000000000000',
-      quoteOutputAmount: '2100000000000000000000',
-      deltaAmount: '100000000000000000000', // 100 * 10^18
+      quoteOutputAmountDirect: '2100000000000000000000',
+      quoteOutputAmountNet: '2100000000000000000000',
+      deltaAmount: '100000000000000000000', // Net quote - spot = 2100 - 2000 = 100
       tribunalQuote: null,
       tribunalQuoteUsd: null,
     })
@@ -190,6 +193,8 @@ describe('QuoteService', () => {
       ...mockPriceData('2100000000000000000000'),
       poolAddress: '0xpool',
       liquidity: '1000000000000000000',
+      outputAmountDirect: '2100000000000000000000',
+      outputAmountNet: '2100000000000000000000',
     })
 
     const result = await quoteService.getQuote(mockRequest)
@@ -197,8 +202,9 @@ describe('QuoteService', () => {
     expect(result).toEqual({
       ...mockRequest,
       spotOutputAmount: null,
-      quoteOutputAmount: '2100000000000000000000',
-      deltaAmount: null,
+      quoteOutputAmountDirect: '2100000000000000000000',
+      quoteOutputAmountNet: '2100000000000000000000',
+      deltaAmount: null, // No spot price to calculate delta
       tribunalQuote: null,
       tribunalQuoteUsd: null,
     })
@@ -230,8 +236,9 @@ describe('QuoteService', () => {
     expect(result).toEqual({
       ...mockRequest,
       spotOutputAmount: '2000000000000000000000',
-      quoteOutputAmount: null,
-      deltaAmount: null,
+      quoteOutputAmountDirect: null,
+      quoteOutputAmountNet: null,
+      deltaAmount: null, // No quote to calculate delta
       tribunalQuote: null,
       tribunalQuoteUsd: null,
     })
@@ -266,12 +273,23 @@ describe('QuoteService', () => {
       .mockResolvedValueOnce(mockPriceData('1000000000000000000')) // 1 * 10^18
       .mockResolvedValueOnce(mockPriceData('2000000000000000000000')) // ETH price: 2000 * 10^18
 
-    // Mock Uniswap response
-    mockUniswapProvider.getUniswapPrice.mockResolvedValue({
-      ...mockPriceData('2100000000000000000000'), // 2100 * 10^18
-      poolAddress: '0xpool',
-      liquidity: '1000000000000000000',
-    })
+    // Mock preliminary Uniswap quote
+    mockUniswapProvider.getUniswapPrice
+      .mockResolvedValueOnce({
+        ...mockPriceData('2100000000000000000000'), // 2100 * 10^18 (preliminary)
+        poolAddress: '0xpool',
+        liquidity: '1000000000000000000',
+        outputAmountDirect: '2100000000000000000000',
+        outputAmountNet: '2100000000000000000000',
+      })
+      // Mock final quote with dispensation
+      .mockResolvedValueOnce({
+        ...mockPriceData('2000000000000000000000'), // 2000 * 10^18 (after dispensation)
+        poolAddress: '0xpool',
+        liquidity: '1000000000000000000',
+        outputAmountDirect: '2100000000000000000000',
+        outputAmountNet: '2000000000000000000000',
+      })
 
     const result = await quoteService.getQuote(mockRequest)
 
@@ -279,8 +297,9 @@ describe('QuoteService', () => {
       ...mockRequest,
       inputTokenAmount: '1000000000000000000',
       spotOutputAmount: '2000000000000000000000',
-      quoteOutputAmount: '2100000000000000000000',
-      deltaAmount: '100000000000000000000', // 100 * 10^18
+      quoteOutputAmountDirect: '2100000000000000000000',
+      quoteOutputAmountNet: '2000000000000000000000',
+      deltaAmount: '0', // Net quote - spot = 2000 - 2000 = 0
       tribunalQuote: '50000000000000000', // 0.05 ETH dispensation
       tribunalQuoteUsd: '100000000000000000000', // 0.05 ETH * 2000 USD = 100 USD
     })
@@ -309,6 +328,59 @@ describe('QuoteService', () => {
       expectedContext,
       mockRequest.outputTokenChainId
     )
+  })
+
+  test('handles error when dispensation exceeds intermediate amount', async () => {
+    await quoteService.initialize()
+
+    const mockRequest = {
+      inputTokenChainId: 10, // Optimism
+      inputTokenAddress: '0x1234',
+      inputTokenAmount: '1000000000000000000', // 1 ETH
+      outputTokenChainId: 8453, // Base
+      outputTokenAddress: '0x5678',
+      lockParameters: {
+        allocatorId: '123',
+        resetPeriod: 4,
+        isMultichain: true,
+      },
+    }
+
+    // Mock CoinGecko responses
+    mockCoinGeckoProvider.getUsdPrice
+      .mockResolvedValueOnce(mockPriceData('2000000000000000000000')) // 2000 * 10^18
+      .mockResolvedValueOnce(mockPriceData('1000000000000000000')) // 1 * 10^18
+      .mockResolvedValueOnce(mockPriceData('2000000000000000000000')) // ETH price: 2000 * 10^18
+
+    // Mock preliminary quote with low intermediate amount
+    mockUniswapProvider.getUniswapPrice
+      .mockResolvedValueOnce({
+        ...mockPriceData('500000000000000000'), // 0.5 ETH intermediate
+        poolAddress: '0xpool',
+        liquidity: '1000000000000000000',
+        outputAmountDirect: '500000000000000000',
+        outputAmountNet: '500000000000000000',
+      })
+
+    // Mock tribunal returning a larger dispensation
+    mockTribunalService.getQuote.mockResolvedValueOnce('600000000000000000') // 0.6 ETH dispensation
+
+    // Mock final quote attempt failing due to excessive dispensation
+    mockUniswapProvider.getUniswapPrice
+      .mockRejectedValueOnce(new Error('Dispensation amount exceeds intermediate quote amount'))
+
+    const result = await quoteService.getQuote(mockRequest)
+
+    // Should still return a response but with null quote amounts
+    expect(result).toEqual({
+      ...mockRequest,
+      spotOutputAmount: '2000000000000000000000',
+      quoteOutputAmountDirect: null,
+      quoteOutputAmountNet: null,
+      deltaAmount: null,
+      tribunalQuote: '600000000000000000',
+      tribunalQuoteUsd: '1200000000000000000000', // 0.6 ETH * 2000 USD = 1200 USD
+    })
   })
 
   test('throws error for unsupported chain', async () => {

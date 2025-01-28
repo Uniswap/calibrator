@@ -86,8 +86,14 @@ export class UniswapProvider implements IUniswapProvider {
   async getUniswapPrice(
     tokenIn: Token,
     tokenOut: Token,
-    amount?: string
-  ): Promise<PriceData & { poolAddress?: string; liquidity?: string }> {
+    amount?: string,
+    dispensationAmount?: string
+  ): Promise<PriceData & {
+    poolAddress?: string;
+    liquidity?: string;
+    outputAmountDirect?: string;
+    outputAmountNet?: string;
+  }> {
     try {
       // Use 1 ETH as the default amount if not specified
       const defaultAmount = '1000000000000000000' // 1 ETH in wei
@@ -107,7 +113,7 @@ export class UniswapProvider implements IUniswapProvider {
 
       // If on different chains, handle cross-chain quote
       if (tokenIn.chainId !== tokenOut.chainId) {
-        return this.getCrossChainPrice(tokenIn, tokenOut, inputAmount)
+        return this.getCrossChainPrice(tokenIn, tokenOut, inputAmount, dispensationAmount)
       }
 
       // Same chain quote
@@ -121,8 +127,12 @@ export class UniswapProvider implements IUniswapProvider {
         throw new Error('Invalid quote response from Uniswap API')
       }
 
+      // For same-chain quotes, direct and net are the same since there's no intermediate step
+      const outputAmount = quote.output.amount
       return {
-        price: quote.output.amount,
+        price: outputAmount,
+        outputAmountDirect: outputAmount,
+        outputAmountNet: outputAmount,
         source: 'uniswap',
         timestamp: Date.now(),
       }
@@ -135,8 +145,14 @@ export class UniswapProvider implements IUniswapProvider {
   private async getCrossChainPrice(
     tokenIn: Token,
     tokenOut: Token,
-    amount: string
-  ): Promise<PriceData & { poolAddress?: string; liquidity?: string }> {
+    amount: string,
+    dispensationAmount?: string
+  ): Promise<PriceData & {
+    poolAddress?: string;
+    liquidity?: string;
+    outputAmountDirect?: string;
+    outputAmountNet?: string;
+  }> {
     // Create native token objects for both chains
     const nativeTokenIn: Token = {
       ...tokenIn,
@@ -162,24 +178,50 @@ export class UniswapProvider implements IUniswapProvider {
       firstQuoteAmount = amount
     }
 
+    // Calculate net amount after dispensation
+    let netAmount = firstQuoteAmount
+    if (dispensationAmount) {
+      const firstQuoteBN = BigInt(firstQuoteAmount)
+      const dispensationBN = BigInt(dispensationAmount)
+      
+      if (dispensationBN >= firstQuoteBN) {
+        throw new Error('Dispensation amount exceeds intermediate quote amount')
+      }
+      
+      netAmount = (firstQuoteBN - dispensationBN).toString()
+    }
+
     // Handle output side if not native
+    let directAmount: string
     if (tokenOut.address !== NATIVE_TOKEN) {
-      const outputQuote = await this.fetchIndicativeQuote(
+      // Get direct quote using full intermediate amount
+      const directQuote = await this.fetchIndicativeQuote(
         nativeTokenOut,
         tokenOut,
         firstQuoteAmount
       )
-      secondQuoteAmount = outputQuote.output.amount
+      directAmount = directQuote.output.amount
+
+      // Get net quote using amount after dispensation
+      const netQuote = await this.fetchIndicativeQuote(
+        nativeTokenOut,
+        tokenOut,
+        netAmount
+      )
+      secondQuoteAmount = netQuote.output.amount
     } else {
-      secondQuoteAmount = firstQuoteAmount
+      directAmount = firstQuoteAmount
+      secondQuoteAmount = netAmount
     }
 
-    if (!secondQuoteAmount) {
+    if (!secondQuoteAmount || !directAmount) {
       throw new Error('Failed to calculate cross-chain quote')
     }
 
     return {
-      price: secondQuoteAmount,
+      price: secondQuoteAmount, // Use net amount as primary price
+      outputAmountDirect: directAmount,
+      outputAmountNet: secondQuoteAmount,
       source: 'uniswap',
       timestamp: Date.now(),
     }

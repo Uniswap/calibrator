@@ -217,14 +217,15 @@ export class QuoteService {
     )
 
     let spotOutputAmount: string | null = null
-    let quoteOutputAmount: string | null = null
+    let quoteOutputAmountDirect: string | null = null
+    let quoteOutputAmountNet: string | null = null
     let deltaAmount: string | null = null
     let tribunalQuote: string | null = null
     let tribunalQuoteUsd: string | null = null
 
+    // Get spot prices from CoinGecko
     try {
       this.logger.info('Getting spot prices from CoinGecko')
-      // Get spot prices from CoinGecko
       const [inputPrice, outputPrice] = await Promise.all([
         this.coinGeckoProvider.getUsdPrice(inputToken),
         this.coinGeckoProvider.getUsdPrice(outputToken),
@@ -277,39 +278,19 @@ export class QuoteService {
       this.logger.error(`Error fetching spot prices: ${error}`)
     }
 
-    try {
-      this.logger.info('Getting Uniswap quote')
-      // Get Uniswap quote (will be in output token's decimals)
-      const quote = await this.uniswapProvider.getUniswapPrice(
-        inputToken,
-        outputToken,
-        inputTokenAmount
-      )
-      quoteOutputAmount = quote.price
-
-      // Only calculate delta if we have both spot and quote prices
-      if (spotOutputAmount !== null) {
-        const delta = BigInt(quoteOutputAmount) - BigInt(spotOutputAmount)
-        deltaAmount = delta.toString()
-      }
-
-      this.logger.info(`Uniswap quote amount: ${quoteOutputAmount}`)
-      this.logger.info(`Calculated delta: ${deltaAmount}`)
-    } catch (error) {
-      this.logger.error(`Error fetching Uniswap quote: ${error}`)
-      // If Uniswap fails, set quote and delta to null
-      quoteOutputAmount = null
-      deltaAmount = null
-    }
-
-    // Get cross-chain message cost (dispensation) from the tribunal if needed
-    if (
-      lockParameters?.allocatorId !== undefined &&
-      (spotOutputAmount || quoteOutputAmount)
-    ) {
+    // Get cross-chain message cost (dispensation) if needed
+    if (lockParameters?.allocatorId !== undefined) {
       try {
+        // First get a preliminary quote without dispensation
+        const preliminaryQuote = await this.uniswapProvider.getUniswapPrice(
+          inputToken,
+          outputToken,
+          inputTokenAmount
+        )
+        const preliminaryAmount = preliminaryQuote.price
+
+        // Get tribunal quote using preliminary amount
         const tribunalService = new TribunalService()
-        const outputAmount = quoteOutputAmount || spotOutputAmount || '0'
         const expiresValue =
           context?.expires || Math.floor(Date.now() / 1000) + 3600
 
@@ -345,9 +326,9 @@ export class QuoteService {
                 nonce: '0',
                 expires: expiresValue.toString(),
                 allocatorId: lockParameters.allocatorId,
-                amount: outputAmount,
+                amount: preliminaryAmount,
                 minimumAmount: (
-                  (BigInt(outputAmount) *
+                  (BigInt(preliminaryAmount) *
                     BigInt(10000 - (context?.slippageBips || 100))) /
                   10000n
                 ).toString(),
@@ -358,9 +339,9 @@ export class QuoteService {
                 nonce: 0n,
                 expires: BigInt(expiresValue),
                 allocatorId: BigInt(lockParameters.allocatorId),
-                amount: BigInt(outputAmount),
+                amount: BigInt(preliminaryAmount),
                 minimumAmount:
-                  (BigInt(outputAmount) *
+                  (BigInt(preliminaryAmount) *
                     BigInt(10000 - (context?.slippageBips || 100))) /
                   10000n,
                 baselinePriorityFee: BigInt(
@@ -428,8 +409,53 @@ export class QuoteService {
             `Cross-chain message cost in USD (formatted): ${Number(dispensationUsd) / 1e18}`
           )
         }
+
+        // Now get final quote with dispensation
+        const quote = await this.uniswapProvider.getUniswapPrice(
+          inputToken,
+          outputToken,
+          inputTokenAmount,
+          tribunalQuote
+        )
+
+        quoteOutputAmountDirect = quote.outputAmountDirect || quote.price
+        quoteOutputAmountNet = quote.outputAmountNet || quote.price
+
+        // Only calculate delta if we have both spot and quote prices
+        if (spotOutputAmount !== null && quoteOutputAmountNet !== null) {
+          const delta = BigInt(quoteOutputAmountNet) - BigInt(spotOutputAmount)
+          deltaAmount = delta.toString()
+        }
+
+        this.logger.info(`Uniswap quote amount (direct): ${quoteOutputAmountDirect}`)
+        this.logger.info(`Uniswap quote amount (net): ${quoteOutputAmountNet}`)
+        this.logger.info(`Calculated delta: ${deltaAmount}`)
       } catch (error) {
-        this.logger.error(`Error getting tribunal quote: ${error}`)
+        this.logger.error(`Error getting quote with dispensation: ${error}`)
+      }
+    } else {
+      // No dispensation needed, get regular quote
+      try {
+        const quote = await this.uniswapProvider.getUniswapPrice(
+          inputToken,
+          outputToken,
+          inputTokenAmount
+        )
+
+        quoteOutputAmountDirect = quote.outputAmountDirect || quote.price
+        quoteOutputAmountNet = quote.outputAmountNet || quote.price
+
+        // Only calculate delta if we have both spot and quote prices
+        if (spotOutputAmount !== null && quoteOutputAmountNet !== null) {
+          const delta = BigInt(quoteOutputAmountNet) - BigInt(spotOutputAmount)
+          deltaAmount = delta.toString()
+        }
+
+        this.logger.info(`Uniswap quote amount (direct): ${quoteOutputAmountDirect}`)
+        this.logger.info(`Uniswap quote amount (net): ${quoteOutputAmountNet}`)
+        this.logger.info(`Calculated delta: ${deltaAmount}`)
+      } catch (error) {
+        this.logger.error(`Error fetching Uniswap quote: ${error}`)
       }
     }
 
@@ -440,7 +466,8 @@ export class QuoteService {
       outputTokenChainId,
       outputTokenAddress,
       spotOutputAmount,
-      quoteOutputAmount,
+      quoteOutputAmountDirect,
+      quoteOutputAmountNet,
       deltaAmount,
       tribunalQuote,
       tribunalQuoteUsd,

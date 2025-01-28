@@ -118,7 +118,7 @@ export async function quoteRoutes(
         const quote = convertBigIntsToStrings(rawQuote) as typeof rawQuote
 
         // Ensure we have an output amount
-        const outputAmount = quote.spotOutputAmount || quote.quoteOutputAmount
+        const outputAmount = quote.spotOutputAmount || quote.quoteOutputAmountNet
         if (!outputAmount) {
           throw new Error(
             'Failed to get output amount from either spot or quote price'
@@ -132,7 +132,8 @@ export async function quoteRoutes(
           inputTokenAddress: quote.inputTokenAddress,
           outputTokenAddress: quote.outputTokenAddress,
           inputTokenAmount: quote.inputTokenAmount,
-          outputTokenAmount: outputAmount,
+          outputAmountDirect: quote.quoteOutputAmountDirect || outputAmount,
+          outputAmountNet: outputAmount,
           tribunalQuote: rawQuote.tribunalQuote,
           tribunalQuoteUsd: rawQuote.tribunalQuoteUsd,
         }
@@ -171,7 +172,8 @@ export async function quoteRoutes(
             ? `$${(Number(BigInt(rawQuote.tribunalQuoteUsd)) / Math.pow(10, 18)).toFixed(4)}`
             : null,
           spotOutputAmount: rawQuote.spotOutputAmount,
-          quoteOutputAmount: rawQuote.quoteOutputAmount,
+          quoteOutputAmountDirect: rawQuote.quoteOutputAmountDirect,
+          quoteOutputAmountNet: rawQuote.quoteOutputAmountNet,
           deltaAmount: rawQuote.deltaAmount,
         }
 
