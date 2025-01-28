@@ -47,29 +47,40 @@ export class TribunalService {
   private baseClient: PublicClient
 
   constructor() {
-    this.ethereumClient = createPublicClient({
-      chain: mainnet,
-      transport: http(process.env.ETHEREUM_RPC_URL),
+    // Configure clients with specific settings for each chain
+    const commonConfig = {
+      pollingInterval: 4_000,
       batch: {
         multicall: true,
       },
-    })
+      cacheTime: 4_000,
+    }
+
+    const ethereumRpcUrl = process.env.ETHEREUM_RPC_URL
+    const optimismRpcUrl = process.env.OPTIMISM_RPC_URL
+    const baseRpcUrl = process.env.BASE_RPC_URL
+
+    if (!ethereumRpcUrl) throw new Error('ETHEREUM_RPC_URL is required')
+    if (!optimismRpcUrl) throw new Error('OPTIMISM_RPC_URL is required')
+    if (!baseRpcUrl) throw new Error('BASE_RPC_URL is required')
+
+    this.ethereumClient = createPublicClient({
+      ...commonConfig,
+      chain: mainnet,
+      transport: http(ethereumRpcUrl),
+    }) as PublicClient
 
     this.optimismClient = createPublicClient({
+      ...commonConfig,
       chain: optimism,
-      transport: http(process.env.OPTIMISM_RPC_URL),
-      batch: {
-        multicall: true,
-      },
-    })
+      transport: http(optimismRpcUrl),
+    }) as PublicClient
 
     this.baseClient = createPublicClient({
+      ...commonConfig,
       chain: base,
-      transport: http(process.env.BASE_RPC_URL),
-      batch: {
-        multicall: true,
-      },
-    })
+      transport: http(baseRpcUrl),
+    }) as PublicClient
   }
 
   private getClientForChain(chainId: number): PublicClient {
@@ -109,13 +120,13 @@ export class TribunalService {
     claimant: string,
     claimAmount: bigint,
     mandate: {
-      recipient: string,
-      expires: bigint,
-      token: string,
-      minimumAmount: bigint,
-      baselinePriorityFee: bigint,
-      scalingFactor: bigint,
-      salt: string,
+      recipient: string
+      expires: bigint
+      token: string
+      minimumAmount: bigint
+      baselinePriorityFee: bigint
+      scalingFactor: bigint
+      salt: string
     },
     targetChainId: number
   ): Promise<bigint> {

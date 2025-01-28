@@ -31,16 +31,17 @@ export class QuoteConfigurationService {
     }
 
     // Get arbiter for chain pair
-    const chainPair = `${quote.inputChainId}-${quote.outputChainId}`
+    const chainPair = `${quote.inputTokenChainId}-${quote.outputTokenChainId}`
     const arbiter = this.arbiterMapping[chainPair]
     if (!arbiter) {
       throw new Error(`No arbiter found for chain pair ${chainPair}`)
     }
 
     // Calculate ID and expiration
-    const id = this.calculateId(lockParameters, quote.inputToken)
-    const expires =
-      context.expires ?? BigInt(Math.floor(Date.now() / 1000) + duration)
+    const id = this.calculateId(lockParameters, quote.inputTokenAddress)
+    const expires = context.expires
+      ? BigInt(context.expires)
+      : BigInt(Math.floor(Date.now() / 1000) + duration)
 
     // Get witness data from resolver
     const witness = arbiter.resolver(
@@ -82,28 +83,29 @@ export class QuoteConfigurationService {
         nonce: null,
         expires,
         id,
-        amount: quote.inputAmount,
-        maximumAmount: quote.outputAmount,
-        dispensation: quote.tribunalQuote || 0n,
+        amount: BigInt(quote.inputTokenAmount),
+        maximumAmount: BigInt(quote.outputTokenAmount),
+        dispensation: quote.tribunalQuote ? BigInt(quote.tribunalQuote) : 0n,
         [variableName]: witness,
       },
       witnessHash,
-      dispensation: quote.tribunalQuote || 0n,
+      dispensation: quote.tribunalQuote ? BigInt(quote.tribunalQuote) : 0n,
     }
   }
 
   private calculateId(
     lockParameters: LockParameters,
-    inputToken: Address
+    inputToken: string
   ): bigint {
     const multiChainBit = lockParameters.isMultichain ? 0n : 1n
     const inputTokenBigInt = BigInt(inputToken)
+    const allocatorIdBigInt = BigInt(lockParameters.allocatorId)
 
     return (
       (multiChainBit << 255n) |
       (BigInt(lockParameters.resetPeriod) << 252n) |
-      (lockParameters.allocatorId << 160n) |
-      inputTokenBigInt
+      (allocatorIdBigInt << 160n) |
+      (inputTokenBigInt & ((1n << 160n) - 1n))
     )
   }
 

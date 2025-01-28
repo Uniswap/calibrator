@@ -3,7 +3,18 @@ import { Type, Static } from '@sinclair/typebox'
 import { QuoteService } from '../services/price/QuoteService.js'
 import { QuoteConfigurationService } from '../services/quote/QuoteConfigurationService.js'
 import { arbiterMapping } from '../config/arbiters.js'
-import { LockParameters, QuoteContext } from '../types/quote.js'
+import { LockParameters, QuoteContext, Quote } from '../types/quote.js'
+
+// Define the request schema that matches the service types
+interface ServiceQuoteRequest {
+  inputTokenChainId: number
+  outputTokenChainId: number
+  inputTokenAddress: string
+  outputTokenAddress: string
+  inputTokenAmount: string
+  lockParameters?: LockParameters
+  context?: QuoteContext
+}
 
 const QuoteRequestSchema = Type.Object({
   inputTokenChainId: Type.Number(),
@@ -29,39 +40,35 @@ const QuoteRequestSchema = Type.Object({
   ),
 })
 
-type QuoteRequest = Static<typeof QuoteRequestSchema>
+type RequestBody = Static<typeof QuoteRequestSchema>
 
 // Helper function to convert bigint values to strings in an object
-function convertBigIntsToStrings<T>(obj: T): T extends bigint
-  ? string
-  : T extends Array<infer U>
-    ? Array<U>
-    : T extends object
-      ? {
-          [K in keyof T]: T[K] extends bigint
-            ? string
-            : T[K] extends object
-              ? ReturnType<typeof convertBigIntsToStrings<T[K]>>
-              : T[K]
-        }
-      : T {
+function convertBigIntsToStrings<T>(obj: T): unknown {
   if (obj === null || obj === undefined) {
-    return obj as any
+    return obj
   }
+
   if (typeof obj === 'bigint') {
-    return obj.toString() as any
+    return obj.toString()
   }
+
   if (Array.isArray(obj)) {
-    return obj.map(convertBigIntsToStrings) as any
+    return obj.map(convertBigIntsToStrings)
   }
+
   if (typeof obj === 'object') {
     const result: Record<string, unknown> = {}
     for (const key in obj) {
-      result[key] = convertBigIntsToStrings((obj as any)[key])
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
+        result[key] = convertBigIntsToStrings(
+          (obj as Record<string, unknown>)[key]
+        )
+      }
     }
-    return result as any
+    return result
   }
-  return obj as any
+
+  return obj
 }
 
 export async function quoteRoutes(
@@ -70,7 +77,7 @@ export async function quoteRoutes(
 ): Promise<void> {
   const quoteConfigService = new QuoteConfigurationService(arbiterMapping)
 
-  fastify.post<{ Body: QuoteRequest }>(
+  fastify.post<{ Body: RequestBody }>(
     '/quote',
     {
       schema: {
@@ -78,12 +85,37 @@ export async function quoteRoutes(
       },
     },
     async (
-      request: FastifyRequest<{ Body: QuoteRequest }>,
+      request: FastifyRequest<{ Body: RequestBody }>,
       reply: FastifyReply
     ) => {
       try {
-        const rawQuote = await quoteService.getQuote(request.body)
-        const quote = convertBigIntsToStrings(rawQuote)
+        // Convert request body to service types
+        const serviceRequest: ServiceQuoteRequest = {
+          inputTokenChainId: request.body.inputTokenChainId,
+          outputTokenChainId: request.body.outputTokenChainId,
+          inputTokenAddress: request.body.inputTokenAddress,
+          outputTokenAddress: request.body.outputTokenAddress,
+          inputTokenAmount: request.body.inputTokenAmount.toString(),
+          lockParameters: request.body.lockParameters
+            ? {
+                allocatorId: request.body.lockParameters.allocatorId,
+                resetPeriod: request.body.lockParameters.resetPeriod,
+                isMultichain: request.body.lockParameters.isMultichain,
+              }
+            : undefined,
+          context: request.body.context
+            ? {
+                slippageBips: request.body.context.slippageBips,
+                recipient: request.body.context.recipient,
+                baselinePriorityFee: request.body.context.baselinePriorityFee,
+                scalingFactor: request.body.context.scalingFactor,
+                expires: request.body.context.expires,
+              }
+            : undefined,
+        }
+
+        const rawQuote = await quoteService.getQuote(serviceRequest)
+        const quote = convertBigIntsToStrings(rawQuote) as typeof rawQuote
 
         // Ensure we have an output amount
         const outputAmount = quote.spotOutputAmount || quote.quoteOutputAmount
@@ -93,50 +125,35 @@ export async function quoteRoutes(
           )
         }
 
-        // Default values for lockParameters and context
-        const lockParameters: LockParameters = {
-          allocatorId: request.body.lockParameters?.allocatorId
-            ? BigInt(request.body.lockParameters.allocatorId)
-            : 0n,
-          resetPeriod: request.body.lockParameters?.resetPeriod ?? 0,
-          isMultichain: request.body.lockParameters?.isMultichain ?? false,
-        }
-
-        const context: QuoteContext = {
-          slippageBips: request.body.context?.slippageBips,
-          recipient: request.body.context?.recipient as
-            | `0x${string}`
-            | undefined,
-          baselinePriorityFee: request.body.context?.baselinePriorityFee
-            ? BigInt(request.body.context.baselinePriorityFee)
-            : undefined,
-          scalingFactor: request.body.context?.scalingFactor
-            ? BigInt(request.body.context.scalingFactor)
-            : undefined,
-          expires: request.body.context?.expires
-            ? BigInt(request.body.context.expires)
-            : undefined,
-        }
-
-        // Convert amounts to bigint
-        const quoteWithBigInt = {
-          inputChainId: quote.inputTokenChainId,
-          outputChainId: quote.outputTokenChainId,
-          inputToken: quote.inputTokenAddress as `0x${string}`,
-          outputToken: quote.outputTokenAddress as `0x${string}`,
-          inputAmount: BigInt(quote.inputTokenAmount),
-          outputAmount: BigInt(outputAmount),
-          tribunalQuote: rawQuote.tribunalQuote ? BigInt(rawQuote.tribunalQuote) : null,
+        // Prepare quote for configuration service
+        const quoteForConfig: Quote = {
+          inputTokenChainId: quote.inputTokenChainId,
+          outputTokenChainId: quote.outputTokenChainId,
+          inputTokenAddress: quote.inputTokenAddress,
+          outputTokenAddress: quote.outputTokenAddress,
+          inputTokenAmount: quote.inputTokenAmount,
+          outputTokenAmount: outputAmount,
+          tribunalQuote: rawQuote.tribunalQuote,
         }
 
         // Generate arbiter configuration
         const arbiterConfiguration =
           await quoteConfigService.generateConfiguration(
-            quoteWithBigInt,
+            quoteForConfig,
             '0x0000000000000000000000000000000000000000', // Default sponsor
             3600, // 1 hour duration
-            lockParameters,
-            context
+            serviceRequest.lockParameters || {
+              allocatorId: '0',
+              resetPeriod: 0,
+              isMultichain: false,
+            },
+            serviceRequest.context || {
+              slippageBips: undefined,
+              recipient: undefined,
+              baselinePriorityFee: undefined,
+              scalingFactor: undefined,
+              expires: undefined,
+            }
           )
 
         // Convert all BigInt values to strings before sending response

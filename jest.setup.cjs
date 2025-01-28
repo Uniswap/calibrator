@@ -1,8 +1,15 @@
-// Add custom serializer for BigInt
+// Add BigInt serialization support
 expect.addSnapshotSerializer({
   test: (val) => typeof val === 'bigint',
   print: (val) => val.toString(),
 })
+
+// Add BigInt serialization for worker threads
+if (typeof BigInt !== 'undefined') {
+  BigInt.prototype.toJSON = function() {
+    return this.toString()
+  }
+}
 
 // Mock console.log to avoid noisy output
 global.console = {

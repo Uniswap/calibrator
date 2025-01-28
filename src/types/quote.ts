@@ -1,7 +1,7 @@
 import { Address } from 'viem'
 
 export interface LockParameters {
-  allocatorId: bigint
+  allocatorId: string
   resetPeriod: number
   isMultichain: boolean
 }
@@ -11,9 +11,9 @@ export interface Quote {
   outputTokenChainId: number
   inputTokenAddress: string
   outputTokenAddress: string
-  inputTokenAmount: bigint
-  outputTokenAmount: bigint
-  tribunalQuote?: bigint
+  inputTokenAmount: string
+  outputTokenAmount: string
+  tribunalQuote: string | null
 }
 
 export interface CompactData {
@@ -26,15 +26,19 @@ export interface CompactData {
   amount: bigint
   maximumAmount: bigint
   dispensation: bigint
-  [key: string]: bigint | `0x${string}` | Record<string, string | number | bigint> | null
+  [key: string]:
+    | bigint
+    | `0x${string}`
+    | Record<string, string | number | bigint>
+    | null
 }
 
 export interface QuoteContext {
   slippageBips?: number
-  recipient?: Address
-  expires?: bigint
-  baselinePriorityFee?: bigint
-  scalingFactor?: bigint
+  recipient?: string
+  baselinePriorityFee?: string
+  scalingFactor?: string
+  expires?: string
   [key: string]: unknown
 }
 
@@ -61,18 +65,8 @@ export interface QuoteRequest {
   inputTokenAmount: string
   outputTokenChainId: number
   outputTokenAddress: string
-  lockParameters?: {
-    allocatorId: string
-    resetPeriod: number
-    isMultichain: boolean
-  }
-  context?: {
-    slippageBips?: number
-    recipient?: string
-    baselinePriorityFee?: string
-    scalingFactor?: string
-    expires?: string
-  }
+  lockParameters?: LockParameters
+  context?: QuoteContext
 }
 
 export interface QuoteResponse {

@@ -47,6 +47,11 @@ global.fetch = jest.fn().mockImplementation(url => {
             chain_identifier: 8453,
             name: 'Base',
           },
+          {
+            id: 'arbitrum-one',
+            chain_identifier: 42161,
+            name: 'Arbitrum One',
+          },
         ]),
     })
   }
@@ -126,6 +131,7 @@ describe('Quote Routes', () => {
       'ethereum',
       'optimistic-ethereum',
       'base',
+      'arbitrum-one',
     ])
   })
 
@@ -213,7 +219,12 @@ describe('Quote Routes', () => {
         inputTokenChainId: 10,
         inputTokenAmount: '1000000000000000000',
         outputTokenAddress: '0x5555555555555555555555555555555555555555',
-        outputTokenChainId: 1, // Ethereum mainnet (unsupported)
+        outputTokenChainId: 42161, // Use Arbitrum chain ID which we don't have an arbiter for
+        lockParameters: {
+          allocatorId: '123',
+          resetPeriod: 4,
+          isMultichain: true,
+        },
       }
 
       // Mock CoinGecko responses
@@ -250,13 +261,12 @@ describe('Quote Routes', () => {
         payload: mockQuote,
       })
 
-      // Log the response for debugging
       console.log('Response payload:', response.payload)
       console.log('Logger error calls:', mockLogger.error.mock.calls)
 
       expect(response.statusCode).toBe(400)
       const result = JSON.parse(response.payload)
-      expect(result.message).toBe('No arbiter found for chain pair 10-1')
+      expect(result.message).toBe('No arbiter found for chain pair 10-42161')
     })
 
     it('should handle custom context parameters', async () => {

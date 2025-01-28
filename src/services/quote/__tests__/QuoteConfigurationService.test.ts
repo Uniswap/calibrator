@@ -10,37 +10,38 @@ interface MandateData {
   chainId: number
   tribunal: string
   recipient: string
-  expires: bigint
+  expires: string
   token: string
-  minimumAmount: bigint
-  baselinePriorityFee: bigint
-  scalingFactor: bigint
+  minimumAmount: string
+  baselinePriorityFee: string
+  scalingFactor: string
   salt: string
 }
 
 describe('QuoteConfigurationService', () => {
   const service = new QuoteConfigurationService(arbiterMapping)
   const mockQuote: Quote = {
-    inputToken: '0x4444444444444444444444444444444444444444',
-    inputAmount: 1000000000000000000n,
-    inputChainId: 10,
-    outputToken: '0x5555555555555555555555555555555555555555',
-    outputAmount: 900000000000000000n,
-    outputChainId: 8453,
+    inputTokenAddress: '0x4444444444444444444444444444444444444444',
+    inputTokenAmount: '1000000000000000000',
+    inputTokenChainId: 10,
+    outputTokenAddress: '0x5555555555555555555555555555555555555555',
+    outputTokenAmount: '900000000000000000',
+    outputTokenChainId: 8453,
+    tribunalQuote: null,
   }
   const mockSponsor = '0x6666666666666666666666666666666666666666'
   const mockDuration = 3600
   const mockLockParameters: LockParameters = {
-    allocatorId: 123n,
+    allocatorId: '123',
     resetPeriod: 4,
     isMultichain: true,
   }
   const mockContext: Required<QuoteContext> = {
     slippageBips: 50,
     recipient: '0x7777777777777777777777777777777777777777',
-    expires: 1703023200n, // 2023-12-20T00:00:00Z
-    baselinePriorityFee: 2000000000n,
-    scalingFactor: 1000000000200000000n,
+    expires: '1703023200', // 2023-12-20T00:00:00Z
+    baselinePriorityFee: '2000000000',
+    scalingFactor: '1000000000200000000',
   }
 
   describe('generateConfiguration', () => {
@@ -63,18 +64,18 @@ describe('QuoteConfigurationService', () => {
         mockContext.expires.toString()
       )
       expect(result.data.amount.toString()).toBe(
-        mockQuote.inputAmount.toString()
+        mockQuote.inputTokenAmount.toString()
       )
 
       // Verify the mandate data
-      const mandate = result.data.mandate as MandateData
-      expect(mandate.chainId).toBe(mockQuote.outputChainId)
+      const mandate = result.data.mandate as unknown as MandateData
+      expect(mandate.chainId).toBe(mockQuote.outputTokenChainId)
       expect(mandate.tribunal).toBe(
         '0x339B234fdBa8C5C77c43AA01a6ad38071B7984F1'
       )
       expect(mandate.recipient).toBe(mockContext.recipient)
       expect(mandate.expires.toString()).toBe(mockContext.expires.toString())
-      expect(mandate.token).toBe(mockQuote.outputToken)
+      expect(mandate.token).toBe(mockQuote.outputTokenAddress)
       expect(mandate.minimumAmount.toString()).toBe('895500000000000000') // 99.5% of output amount (50 bips slippage)
       expect(mandate.baselinePriorityFee.toString()).toBe(
         mockContext.baselinePriorityFee.toString()
@@ -99,7 +100,7 @@ describe('QuoteConfigurationService', () => {
         {}
       )
 
-      const mandate = result.data.mandate as MandateData
+      const mandate = result.data.mandate as unknown as MandateData
       expect(mandate.recipient).toBe(mockSponsor)
       expect(mandate.minimumAmount.toString()).toBe('891000000000000000') // 99% of output amount (default 100 bips slippage)
       expect(mandate.baselinePriorityFee.toString()).toBe('0')
@@ -107,7 +108,7 @@ describe('QuoteConfigurationService', () => {
     })
 
     it('should throw error for unsupported chain pair', async () => {
-      const invalidQuote = { ...mockQuote, outputChainId: 1 }
+      const invalidQuote = { ...mockQuote, outputTokenChainId: 42161 } // Use Arbitrum chain ID which we don't have an arbiter for
       await expect(
         service.generateConfiguration(
           invalidQuote,
@@ -116,7 +117,7 @@ describe('QuoteConfigurationService', () => {
           mockLockParameters,
           mockContext
         )
-      ).rejects.toThrow('No arbiter found for chain pair 10-1')
+      ).rejects.toThrow('No arbiter found for chain pair 10-42161')
     })
 
     it('should throw error for invalid reset period', async () => {
@@ -163,7 +164,7 @@ describe('QuoteConfigurationService', () => {
         (0n << 255n) |
         (4n << 252n) |
         (123n << 160n) |
-        BigInt(mockQuote.inputToken)
+        BigInt(mockQuote.inputTokenAddress)
 
       expect(result.data.id.toString()).toBe(expectedId.toString())
     })
@@ -182,7 +183,7 @@ describe('QuoteConfigurationService', () => {
         (1n << 255n) |
         (4n << 252n) |
         (123n << 160n) |
-        BigInt(mockQuote.inputToken)
+        BigInt(mockQuote.inputTokenAddress)
 
       expect(result.data.id.toString()).toBe(expectedId.toString())
     })
