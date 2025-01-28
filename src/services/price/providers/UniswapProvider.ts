@@ -99,13 +99,19 @@ export class UniswapProvider implements IUniswapProvider {
       const defaultAmount = '1000000000000000000' // 1 ETH in wei
       const inputAmount = amount || defaultAmount
 
-      // If both tokens are native (address(0)), return the input amount as is
+      // If both tokens are native (address(0)), handle dispensation directly
       if (
         tokenIn.address === NATIVE_TOKEN &&
         tokenOut.address === NATIVE_TOKEN
       ) {
+        const netAmount = dispensationAmount
+          ? (BigInt(inputAmount) - BigInt(dispensationAmount)).toString()
+          : inputAmount;
+
         return {
-          price: inputAmount,
+          price: netAmount,
+          outputAmountDirect: inputAmount,
+          outputAmountNet: netAmount,
           source: 'uniswap',
           timestamp: Date.now(),
         }
