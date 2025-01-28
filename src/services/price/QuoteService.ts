@@ -220,6 +220,7 @@ export class QuoteService {
     let quoteOutputAmount: string | null = null
     let deltaAmount: string | null = null
     let tribunalQuote: string | null = null
+    let tribunalQuoteUsd: string | null = null
 
     try {
       this.logger.info('Getting spot prices from CoinGecko')
@@ -399,6 +400,34 @@ export class QuoteService {
         this.logger.info(
           `Cross-chain message cost (dispensation): ${tribunalQuote}`
         )
+
+        // Get ETH price to convert dispensation to USD
+        const ethToken: Token = {
+          address: '0x0000000000000000000000000000000000000000',
+          chainId: 1, // Ethereum mainnet
+          decimals: 18,
+          symbol: 'ETH',
+        }
+        const ethPrice = await this.coinGeckoProvider.getUsdPrice(ethToken)
+
+        if (ethPrice) {
+          this.logger.info(`ETH price from CoinGecko: ${ethPrice.price}`)
+          this.logger.info(`Dispensation in wei: ${tribunalQuote}`)
+
+          // ethPrice.price is already in wei (18 decimals)
+          // Calculate USD value: (wei * price in wei) / 10^18
+          const dispensationUsd =
+            (BigInt(tribunalQuote) * BigInt(ethPrice.price)) /
+            BigInt(10n ** 18n)
+          tribunalQuoteUsd = dispensationUsd.toString()
+
+          this.logger.info(
+            `Cross-chain message cost in USD (raw): ${dispensationUsd}`
+          )
+          this.logger.info(
+            `Cross-chain message cost in USD (formatted): ${Number(dispensationUsd) / 1e18}`
+          )
+        }
       } catch (error) {
         this.logger.error(`Error getting tribunal quote: ${error}`)
       }
@@ -414,6 +443,7 @@ export class QuoteService {
       quoteOutputAmount,
       deltaAmount,
       tribunalQuote,
+      tribunalQuoteUsd,
       ...(lockParameters && { lockParameters }),
       ...(context && { context }),
     }

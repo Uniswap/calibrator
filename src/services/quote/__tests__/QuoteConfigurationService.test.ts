@@ -28,6 +28,7 @@ describe('QuoteConfigurationService', () => {
     outputTokenAmount: '900000000000000000',
     outputTokenChainId: 8453,
     tribunalQuote: null,
+    tribunalQuoteUsd: null,
   }
   const mockSponsor = '0x6666666666666666666666666666666666666666'
   const mockDuration = 3600

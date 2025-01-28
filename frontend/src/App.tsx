@@ -39,11 +39,41 @@ interface QuoteRequest {
   context?: QuoteContext
 }
 
+interface Mandate {
+  chainId: number
+  tribunal: string
+  recipient: string
+  expires: string
+  token: string
+  minimumAmount: string
+  baselinePriorityFee: string
+  scalingFactor: string
+  salt: string
+}
+
+interface QuoteData {
+  arbiter: string
+  tribunal: string
+  sponsor: string
+  nonce: string | null
+  expires: string
+  id: string
+  amount: string
+  maximumAmount: string
+  dispensation: string
+  mandate: Mandate
+}
+
 interface QuoteResponse extends QuoteRequest {
-  spotOutputAmount: string | null
-  quoteOutputAmount: string | null
-  deltaAmount: string | null
-  arbiterConfiguration: Record<string, any>
+  arbiterConfiguration: {
+    data: QuoteData
+    witnessHash: string
+  }
+  dispensation: string
+  dispensationUSD: string
+  spotOutputAmount: string
+  quoteOutputAmount: string
+  deltaAmount: string
 }
 
 // Initial timestamp from the provided time
@@ -95,7 +125,9 @@ function QuoteForm() {
       if (!response.ok) {
         throw new Error('Failed to get quote')
       }
-      return response.json()
+      const result = await response.json()
+      console.log('Quote Result:', result)
+      return result
     }
   )
 
@@ -115,7 +147,7 @@ function QuoteForm() {
   }
 
   return (
-    <div className="w-full max-w-lg">
+    <div className="w-full max-w-7xl">
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
           <div>
@@ -418,32 +450,195 @@ function QuoteForm() {
       </form>
 
       {quoteMutation.isSuccess && (
-        <div className="mt-6 p-4 bg-gray-50 rounded-md">
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
+        <div className="mt-6 p-6 bg-gray-50 rounded-md">
+          <h3 className="text-lg font-medium text-gray-900 mb-4">
             Quote Result
           </h3>
-          <div className="space-y-2 text-sm">
-            <p>
-              <span className="font-medium">Spot Output Amount:</span>{' '}
-              {quoteMutation.data.spotOutputAmount || 'N/A'}
-            </p>
-            <p>
-              <span className="font-medium">Quote Output Amount:</span>{' '}
-              {quoteMutation.data.quoteOutputAmount || 'N/A'}
-            </p>
-            <p>
-              <span className="font-medium">Delta Amount:</span>{' '}
-              {quoteMutation.data.deltaAmount || 'N/A'}
-            </p>
-            <div className="mt-4">
-              <h4 className="font-medium mb-2">Arbiter Configuration:</h4>
-              <pre className="bg-gray-100 p-2 rounded overflow-auto text-xs">
-                {JSON.stringify(
-                  quoteMutation.data.arbiterConfiguration,
-                  null,
-                  2
-                )}
-              </pre>
+          <div className="space-y-6">
+            <div>
+              <h4 className="font-medium mb-3">Quote Details</h4>
+              <div className="space-y-2">
+                <div className="flex">
+                  <span className="w-80 font-medium">Spot Output Amount:</span>
+                  <span className="flex-1 font-mono text-sm">
+                    {quoteMutation.data.spotOutputAmount}
+                  </span>
+                </div>
+                <div className="flex">
+                  <span className="w-80 font-medium">Quote Output Amount:</span>
+                  <span className="flex-1 font-mono text-sm">
+                    {quoteMutation.data.quoteOutputAmount}
+                  </span>
+                </div>
+                <div className="flex">
+                  <span className="w-80 font-medium">Delta Amount:</span>
+                  <span className="flex-1 font-mono text-sm">
+                    {quoteMutation.data.deltaAmount}
+                  </span>
+                </div>
+                <div className="flex">
+                  <span className="w-80 font-medium">Dispensation:</span>
+                  <span className="flex-1 font-mono text-sm">
+                    {quoteMutation.data.dispensation}
+                  </span>
+                </div>
+                <div className="flex">
+                  <span className="w-80 font-medium">Dispensation USD:</span>
+                  <span className="flex-1 font-mono text-sm">
+                    {quoteMutation.data.dispensationUSD}
+                  </span>
+                </div>
+                <div className="flex">
+                  <span className="w-80 font-medium">Witness Hash:</span>
+                  <span className="flex-1 font-mono text-sm break-all">
+                    {quoteMutation.data.arbiterConfiguration.witnessHash}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <h4 className="font-medium mb-3">Quote Data</h4>
+              <div className="space-y-2">
+                <div className="flex">
+                  <span className="w-80 font-medium">Arbiter:</span>
+                  <span className="flex-1 font-mono text-sm break-all">
+                    {quoteMutation.data.arbiterConfiguration.data.arbiter}
+                  </span>
+                </div>
+                <div className="flex">
+                  <span className="w-80 font-medium">Tribunal:</span>
+                  <span className="flex-1 font-mono text-sm break-all">
+                    {quoteMutation.data.arbiterConfiguration.data.tribunal}
+                  </span>
+                </div>
+                <div className="flex">
+                  <span className="w-80 font-medium">Sponsor:</span>
+                  <span className="flex-1 font-mono text-sm break-all">
+                    {quoteMutation.data.arbiterConfiguration.data.sponsor}
+                  </span>
+                </div>
+                <div className="flex">
+                  <span className="w-80 font-medium">Nonce:</span>
+                  <span className="flex-1 font-mono text-sm">
+                    {quoteMutation.data.arbiterConfiguration.data.nonce ||
+                      'N/A'}
+                  </span>
+                </div>
+                <div className="flex">
+                  <span className="w-80 font-medium">Expires:</span>
+                  <span className="flex-1 font-mono text-sm">
+                    {quoteMutation.data.arbiterConfiguration.data.expires}
+                  </span>
+                </div>
+                <div className="flex">
+                  <span className="w-80 font-medium">ID:</span>
+                  <span className="flex-1 font-mono text-sm break-all">
+                    {quoteMutation.data.arbiterConfiguration.data.id}
+                  </span>
+                </div>
+                <div className="flex">
+                  <span className="w-80 font-medium">Amount:</span>
+                  <span className="flex-1 font-mono text-sm">
+                    {quoteMutation.data.arbiterConfiguration.data.amount}
+                  </span>
+                </div>
+                <div className="flex">
+                  <span className="w-80 font-medium">Maximum Amount:</span>
+                  <span className="flex-1 font-mono text-sm">
+                    {quoteMutation.data.arbiterConfiguration.data.maximumAmount}
+                  </span>
+                </div>
+                <div className="flex">
+                  <span className="w-80 font-medium">Dispensation:</span>
+                  <span className="flex-1 font-mono text-sm">
+                    {quoteMutation.data.arbiterConfiguration.data.dispensation}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <h4 className="font-medium mb-3">Mandate</h4>
+              <div className="space-y-2">
+                <div className="flex">
+                  <span className="w-80 font-medium">Chain ID:</span>
+                  <span className="flex-1 font-mono text-sm">
+                    {
+                      quoteMutation.data.arbiterConfiguration.data.mandate
+                        .chainId
+                    }
+                  </span>
+                </div>
+                <div className="flex">
+                  <span className="w-80 font-medium">Tribunal:</span>
+                  <span className="flex-1 font-mono text-sm break-all">
+                    {
+                      quoteMutation.data.arbiterConfiguration.data.mandate
+                        .tribunal
+                    }
+                  </span>
+                </div>
+                <div className="flex">
+                  <span className="w-80 font-medium">Recipient:</span>
+                  <span className="flex-1 font-mono text-sm break-all">
+                    {
+                      quoteMutation.data.arbiterConfiguration.data.mandate
+                        .recipient
+                    }
+                  </span>
+                </div>
+                <div className="flex">
+                  <span className="w-80 font-medium">Expires:</span>
+                  <span className="flex-1 font-mono text-sm">
+                    {
+                      quoteMutation.data.arbiterConfiguration.data.mandate
+                        .expires
+                    }
+                  </span>
+                </div>
+                <div className="flex">
+                  <span className="w-80 font-medium">Token:</span>
+                  <span className="flex-1 font-mono text-sm break-all">
+                    {quoteMutation.data.arbiterConfiguration.data.mandate.token}
+                  </span>
+                </div>
+                <div className="flex">
+                  <span className="w-80 font-medium">Minimum Amount:</span>
+                  <span className="flex-1 font-mono text-sm">
+                    {
+                      quoteMutation.data.arbiterConfiguration.data.mandate
+                        .minimumAmount
+                    }
+                  </span>
+                </div>
+                <div className="flex">
+                  <span className="w-80 font-medium">
+                    Baseline Priority Fee:
+                  </span>
+                  <span className="flex-1 font-mono text-sm">
+                    {
+                      quoteMutation.data.arbiterConfiguration.data.mandate
+                        .baselinePriorityFee
+                    }
+                  </span>
+                </div>
+                <div className="flex">
+                  <span className="w-80 font-medium">Scaling Factor:</span>
+                  <span className="flex-1 font-mono text-sm">
+                    {
+                      quoteMutation.data.arbiterConfiguration.data.mandate
+                        .scalingFactor
+                    }
+                  </span>
+                </div>
+                <div className="flex">
+                  <span className="w-80 font-medium">Salt:</span>
+                  <span className="flex-1 font-mono text-sm break-all">
+                    {quoteMutation.data.arbiterConfiguration.data.mandate.salt}
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -524,7 +719,7 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <div className="min-h-screen bg-gray-100">
-        <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <div className="max-w-[100rem] mx-auto py-6 sm:px-6 lg:px-8">
           <div className="px-4 py-6 sm:px-0">
             <div className="border-4 border-dashed border-gray-200 rounded-lg p-6">
               <div className="text-center mb-8">

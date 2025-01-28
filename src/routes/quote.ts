@@ -134,6 +134,7 @@ export async function quoteRoutes(
           inputTokenAmount: quote.inputTokenAmount,
           outputTokenAmount: outputAmount,
           tribunalQuote: rawQuote.tribunalQuote,
+          tribunalQuoteUsd: rawQuote.tribunalQuoteUsd,
         }
 
         // Generate arbiter configuration
@@ -157,9 +158,19 @@ export async function quoteRoutes(
           )
 
         // Convert all BigInt values to strings before sending response
+        const convertedConfig = convertBigIntsToStrings(
+          arbiterConfiguration
+        ) as Record<string, unknown>
         const response = {
-          ...quote,
-          arbiterConfiguration: convertBigIntsToStrings(arbiterConfiguration),
+          arbiterConfiguration: {
+            data: convertedConfig.data,
+            witnessHash: convertedConfig.witnessHash,
+          },
+          dispensation: rawQuote.tribunalQuote,
+          dispensationUSD: rawQuote.tribunalQuoteUsd,
+          spotOutputAmount: rawQuote.spotOutputAmount,
+          quoteOutputAmount: rawQuote.quoteOutputAmount,
+          deltaAmount: rawQuote.deltaAmount,
         }
 
         reply.send(response)

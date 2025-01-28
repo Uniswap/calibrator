@@ -167,6 +167,7 @@ describe('QuoteService', () => {
       quoteOutputAmount: '2100000000000000000000',
       deltaAmount: '100000000000000000000', // 100 * 10^18
       tribunalQuote: null,
+      tribunalQuoteUsd: null,
     })
   })
 
@@ -199,6 +200,7 @@ describe('QuoteService', () => {
       quoteOutputAmount: '2100000000000000000000',
       deltaAmount: null,
       tribunalQuote: null,
+      tribunalQuoteUsd: null,
     })
   })
 
@@ -231,6 +233,7 @@ describe('QuoteService', () => {
       quoteOutputAmount: null,
       deltaAmount: null,
       tribunalQuote: null,
+      tribunalQuoteUsd: null,
     })
   })
 
@@ -261,6 +264,7 @@ describe('QuoteService', () => {
     mockCoinGeckoProvider.getUsdPrice
       .mockResolvedValueOnce(mockPriceData('2000000000000000000000')) // 2000 * 10^18
       .mockResolvedValueOnce(mockPriceData('1000000000000000000')) // 1 * 10^18
+      .mockResolvedValueOnce(mockPriceData('2000000000000000000000')) // ETH price: 2000 * 10^18
 
     // Mock Uniswap response
     mockUniswapProvider.getUniswapPrice.mockResolvedValue({
@@ -278,6 +282,7 @@ describe('QuoteService', () => {
       quoteOutputAmount: '2100000000000000000000',
       deltaAmount: '100000000000000000000', // 100 * 10^18
       tribunalQuote: '50000000000000000', // 0.05 ETH dispensation
+      tribunalQuoteUsd: '100000000000000000000', // 0.05 ETH * 2000 USD = 100 USD
     })
 
     // Verify TribunalService was called with correct parameters

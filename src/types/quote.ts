@@ -14,6 +14,7 @@ export interface Quote {
   inputTokenAmount: string
   outputTokenAmount: string
   tribunalQuote: string | null
+  tribunalQuoteUsd: string | null
 }
 
 export interface CompactData {
@@ -79,4 +80,5 @@ export interface QuoteResponse {
   quoteOutputAmount: string | null
   deltaAmount: string | null
   tribunalQuote: string | null
+  tribunalQuoteUsd: string | null
 }
