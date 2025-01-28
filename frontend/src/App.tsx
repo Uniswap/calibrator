@@ -60,7 +60,6 @@ interface QuoteData {
   id: string
   amount: string
   maximumAmount: string
-  dispensation: string
   mandate: Mandate
 }
 
@@ -547,12 +546,6 @@ function QuoteForm() {
                   <span className="w-80 font-medium">Maximum Amount:</span>
                   <span className="flex-1 font-mono text-sm">
                     {quoteMutation.data.arbiterConfiguration.data.maximumAmount}
-                  </span>
-                </div>
-                <div className="flex">
-                  <span className="w-80 font-medium">Dispensation:</span>
-                  <span className="flex-1 font-mono text-sm">
-                    {quoteMutation.data.arbiterConfiguration.data.dispensation}
                   </span>
                 </div>
               </div>

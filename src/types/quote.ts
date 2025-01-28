@@ -26,7 +26,6 @@ export interface CompactData {
   id: bigint
   amount: bigint
   maximumAmount: bigint
-  dispensation: bigint
   [key: string]:
     | bigint
     | `0x${string}`
