@@ -7,22 +7,26 @@ export interface LockParameters {
 }
 
 export interface Quote {
-  inputToken: Address
-  inputAmount: bigint
-  inputChainId: number
-  outputToken: Address
-  outputAmount: bigint
-  outputChainId: number
+  inputTokenChainId: number
+  outputTokenChainId: number
+  inputTokenAddress: string
+  outputTokenAddress: string
+  inputTokenAmount: bigint
+  outputTokenAmount: bigint
+  tribunalQuote?: bigint
 }
 
 export interface CompactData {
-  arbiter: Address
-  sponsor: Address
-  nonce: bigint | null
+  arbiter: `0x${string}`
+  tribunal: `0x${string}`
+  sponsor: `0x${string}`
+  nonce: null
   expires: bigint
   id: bigint
   amount: bigint
-  [witnessKey: string]: unknown
+  maximumAmount: bigint
+  dispensation: bigint
+  [key: string]: bigint | `0x${string}` | Record<string, string | number | bigint> | null
 }
 
 export interface QuoteContext {
@@ -36,6 +40,7 @@ export interface QuoteContext {
 
 export interface ArbiterConfig {
   address: Address
+  tribunal: Address
   witnessTypeString: string
   resolver: (
     quote: Quote,
@@ -48,4 +53,36 @@ export interface ArbiterConfig {
 
 export interface ArbiterMapping {
   [key: string]: ArbiterConfig
+}
+
+export interface QuoteRequest {
+  inputTokenChainId: number
+  inputTokenAddress: string
+  inputTokenAmount: string
+  outputTokenChainId: number
+  outputTokenAddress: string
+  lockParameters?: {
+    allocatorId: string
+    resetPeriod: number
+    isMultichain: boolean
+  }
+  context?: {
+    slippageBips?: number
+    recipient?: string
+    baselinePriorityFee?: string
+    scalingFactor?: string
+    expires?: string
+  }
+}
+
+export interface QuoteResponse {
+  inputTokenChainId: number
+  inputTokenAddress: string
+  inputTokenAmount: string
+  outputTokenChainId: number
+  outputTokenAddress: string
+  spotOutputAmount: string | null
+  quoteOutputAmount: string | null
+  deltaAmount: string | null
+  tribunalQuote: string | null
 }

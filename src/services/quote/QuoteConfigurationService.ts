@@ -23,6 +23,7 @@ export class QuoteConfigurationService {
   ): Promise<{
     data: CompactData
     witnessHash: `0x${string}`
+    dispensation: bigint
   }> {
     // Validate reset period
     if (lockParameters.resetPeriod < 0 || lockParameters.resetPeriod > 7) {
@@ -76,14 +77,18 @@ export class QuoteConfigurationService {
     return {
       data: {
         arbiter: arbiter.address,
+        tribunal: arbiter.tribunal,
         sponsor,
         nonce: null,
         expires,
         id,
         amount: quote.inputAmount,
+        maximumAmount: quote.outputAmount,
+        dispensation: quote.tribunalQuote || 0n,
         [variableName]: witness,
       },
       witnessHash,
+      dispensation: quote.tribunalQuote || 0n,
     }
   }
 

@@ -15,4 +15,5 @@ export interface QuoteResponse {
   quoteOutputAmount: string | null
   spotOutputAmount: string | null
   deltaAmount: string | null
+  tribunalQuote?: string | null
 }

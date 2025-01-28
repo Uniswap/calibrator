@@ -1,9 +1,9 @@
 import { Token } from './interfaces/IPriceProvider.js'
 import { CoinGeckoProvider } from './providers/CoinGeckoProvider.js'
 import { UniswapProvider } from './providers/UniswapProvider.js'
-import { CoinGeckoAssetPlatform, ChainMapping } from './types/coingecko.js'
 import { QuoteRequest, QuoteResponse } from './types/quote.js'
 import { Logger } from '../../utils/logger.js'
+import { TribunalService } from '../quote/TribunalService.js'
 
 interface TokenInfo {
   decimals: number
@@ -20,12 +20,21 @@ interface CoinGeckoTokenResponse {
   symbol: string
 }
 
+interface ChainMapping {
+  [chainId: number]: string
+}
+
+interface CoinGeckoAssetPlatform {
+  id: string
+  chain_identifier: number | null
+}
+
 export class QuoteService {
-  private chainMapping: ChainMapping = {}
   private coinGeckoProvider: CoinGeckoProvider
   private uniswapProvider: UniswapProvider
   private logger: Logger
   private tokenInfoCache: Map<string, TokenInfo>
+  private chainMapping: ChainMapping = {}
   private readonly CACHE_TTL = 24 * 60 * 60 * 1000 // 24 hours
 
   constructor(
@@ -37,6 +46,43 @@ export class QuoteService {
     this.uniswapProvider = uniswapProvider
     this.logger = logger
     this.tokenInfoCache = new Map()
+  }
+
+  async initialize(): Promise<void> {
+    try {
+      const response = await fetch(
+        'https://pro-api.coingecko.com/api/v3/asset_platforms',
+        {
+          headers: {
+            accept: 'application/json',
+            'x-cg-pro-api-key': process.env.COINGECKO_API_KEY || '',
+          },
+        }
+      )
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch asset platforms')
+      }
+
+      const platforms = (await response.json()) as CoinGeckoAssetPlatform[]
+      this.logger.info(
+        `Fetched ${platforms.length} asset platforms from CoinGecko`
+      )
+
+      this.chainMapping = platforms.reduce((acc, platform) => {
+        if (platform.chain_identifier !== null) {
+          acc[platform.chain_identifier] = platform.id
+        }
+        return acc
+      }, {} as ChainMapping)
+
+      this.logger.info(
+        `Initialized chain mapping with ${Object.keys(this.chainMapping).length} chains`
+      )
+    } catch (error) {
+      this.logger.error(`Failed to initialize chain mapping: ${error}`)
+      throw error
+    }
   }
 
   private getCacheKey(address: string, chainId: number): string {
@@ -63,7 +109,7 @@ export class QuoteService {
         return info
       }
 
-      const platform = this.getChainPlatform(chainId)
+      const platform = this.chainMapping[chainId]
       const platforms = await this.coinGeckoProvider.getSupportedPlatforms()
 
       if (!platforms.includes(platform)) {
@@ -104,43 +150,6 @@ export class QuoteService {
     }
   }
 
-  async initialize(): Promise<void> {
-    try {
-      const response = await fetch(
-        'https://pro-api.coingecko.com/api/v3/asset_platforms',
-        {
-          headers: {
-            accept: 'application/json',
-            'x-cg-pro-api-key': process.env.COINGECKO_API_KEY || '',
-          },
-        }
-      )
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch asset platforms')
-      }
-
-      const platforms = (await response.json()) as CoinGeckoAssetPlatform[]
-      this.logger.info(
-        `Fetched ${platforms.length} asset platforms from CoinGecko`
-      )
-
-      this.chainMapping = platforms.reduce((acc, platform) => {
-        if (platform.chain_identifier !== null) {
-          acc[platform.chain_identifier] = platform.id
-        }
-        return acc
-      }, {} as ChainMapping)
-
-      this.logger.info(
-        `Initialized chain mapping with ${Object.keys(this.chainMapping).length} chains`
-      )
-    } catch (error) {
-      this.logger.error(`Failed to initialize chain mapping: ${error}`)
-      throw error
-    }
-  }
-
   private getChainPlatform(chainId: number): string {
     const platform = this.chainMapping[chainId]
     if (!platform) {
@@ -156,6 +165,8 @@ export class QuoteService {
       inputTokenAmount,
       outputTokenChainId,
       outputTokenAddress,
+      lockParameters,
+      context,
     } = request
 
     this.logger.info(`Getting quote for request: ${JSON.stringify(request)}`)
@@ -191,6 +202,7 @@ export class QuoteService {
     let spotOutputAmount: string | null = null
     let quoteOutputAmount: string | null = null
     let deltaAmount: string | null = null
+    let tribunalQuote: string | null = null
 
     try {
       this.logger.info('Getting spot prices from CoinGecko')
@@ -272,11 +284,50 @@ export class QuoteService {
       deltaAmount = null
     }
 
+    // Get cross-chain message cost (dispensation) from the tribunal if needed
+    if (lockParameters?.allocatorId !== undefined && (spotOutputAmount || quoteOutputAmount)) {
+      try {
+        const tribunalService = new TribunalService()
+        const outputAmount = BigInt(spotOutputAmount || quoteOutputAmount || '0')
+        const dispensation = await tribunalService.getQuote(
+          '0x0000000000000000000000000000000000000000', // arbiter - dummy value
+          '0x0000000000000000000000000000000000000000', // sponsor - dummy value
+          BigInt(0), // nonce
+          BigInt(Math.floor(Date.now() / 1000) + 3600), // expires in 1 hour
+          BigInt(lockParameters.allocatorId), // id
+          outputAmount, // maximumAmount
+          8453, // chainId - using Base chain ID for the mandate
+          '0x0000000000000000000000000000000000000000', // claimant - dummy value
+          outputAmount, // claimAmount
+          {
+            recipient: '0x0000000000000000000000000000000000000000',
+            expires: BigInt(Math.floor(Date.now() / 1000) + 3600),
+            token: outputTokenAddress as `0x${string}`,
+            minimumAmount: (outputAmount * BigInt(10000 - (context?.slippageBips || 100))) / 10000n,
+            baselinePriorityFee: context?.baselinePriorityFee ? BigInt(context.baselinePriorityFee) : 0n,
+            scalingFactor: context?.scalingFactor ? BigInt(context.scalingFactor) : 1000000000100000000n,
+            salt: '0x3333333333333333333333333333333333333333333333333333333333333333',
+          },
+          10 // targetChainId - call the contract on Optimism
+        )
+        this.logger.info(`Raw dispensation amount: ${dispensation}`)
+        tribunalQuote = dispensation.toString()
+        this.logger.info(`Cross-chain message cost (dispensation): ${tribunalQuote}`)
+      } catch (error) {
+        this.logger.error(`Error getting tribunal quote: ${error}`)
+      }
+    }
+
     return {
-      ...request,
+      inputTokenChainId,
+      inputTokenAddress,
+      inputTokenAmount: inputTokenAmount.toString(),
+      outputTokenChainId,
+      outputTokenAddress,
       spotOutputAmount,
       quoteOutputAmount,
       deltaAmount,
+      tribunalQuote,
     }
   }
 }

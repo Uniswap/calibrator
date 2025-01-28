@@ -82,7 +82,8 @@ export async function quoteRoutes(
       reply: FastifyReply
     ) => {
       try {
-        const quote = await quoteService.getQuote(request.body)
+        const rawQuote = await quoteService.getQuote(request.body)
+        const quote = convertBigIntsToStrings(rawQuote)
 
         // Ensure we have an output amount
         const outputAmount = quote.spotOutputAmount || quote.quoteOutputAmount
@@ -125,6 +126,7 @@ export async function quoteRoutes(
           outputToken: quote.outputTokenAddress as `0x${string}`,
           inputAmount: BigInt(quote.inputTokenAmount),
           outputAmount: BigInt(outputAmount),
+          tribunalQuote: rawQuote.tribunalQuote ? BigInt(rawQuote.tribunalQuote) : null,
         }
 
         // Generate arbiter configuration
