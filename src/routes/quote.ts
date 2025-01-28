@@ -167,7 +167,9 @@ export async function quoteRoutes(
             witnessHash: convertedConfig.witnessHash,
           },
           dispensation: rawQuote.tribunalQuote,
-          dispensationUSD: rawQuote.tribunalQuoteUsd,
+          dispensationUSD: rawQuote.tribunalQuoteUsd
+            ? `$${(Number(BigInt(rawQuote.tribunalQuoteUsd)) / Math.pow(10, 18)).toFixed(4)}`
+            : null,
           spotOutputAmount: rawQuote.spotOutputAmount,
           quoteOutputAmount: rawQuote.quoteOutputAmount,
           deltaAmount: rawQuote.deltaAmount,
