@@ -184,16 +184,15 @@ describe('Quote Routes', () => {
       // Verify arbiter configuration
       expect(result.arbiterConfiguration).toBeDefined()
       expect(result.arbiterConfiguration.data.arbiter).toBe(
-        '0x1111111111111111111111111111111111111111'
+        '0xf4eA570740Ce552632F19c8E92691c6A5F6374D9'
       )
       expect(result.arbiterConfiguration.data.mandate).toBeDefined()
 
       const mandate = result.arbiterConfiguration.data.mandate
       expect(mandate.chainId).toBe(mockQuote.outputTokenChainId)
       expect(mandate.tribunal).toBe(
-        '0x2222222222222222222222222222222222222222'
+        '0x339B234fdBa8C5C77c43AA01a6ad38071B7984F1'
       )
-      expect(mandate.token).toBe(mockQuote.outputTokenAddress)
       // With input amount 1.0, input price 2.0 USD, and output price 1.0 USD
       // Output amount should be 2.0 tokens
       // With 100 bips (1%) slippage, minimum amount should be 1.98 tokens

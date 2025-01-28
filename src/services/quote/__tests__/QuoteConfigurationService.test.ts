@@ -55,7 +55,7 @@ describe('QuoteConfigurationService', () => {
 
       // Verify the compact data
       expect(result.data.arbiter).toBe(
-        '0x1111111111111111111111111111111111111111'
+        '0xf4eA570740Ce552632F19c8E92691c6A5F6374D9'
       )
       expect(result.data.sponsor).toBe(mockSponsor)
       expect(result.data.nonce).toBeNull()
@@ -70,7 +70,7 @@ describe('QuoteConfigurationService', () => {
       const mandate = result.data.mandate as MandateData
       expect(mandate.chainId).toBe(mockQuote.outputChainId)
       expect(mandate.tribunal).toBe(
-        '0x2222222222222222222222222222222222222222'
+        '0x339B234fdBa8C5C77c43AA01a6ad38071B7984F1'
       )
       expect(mandate.recipient).toBe(mockContext.recipient)
       expect(mandate.expires.toString()).toBe(mockContext.expires.toString())
