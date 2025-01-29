@@ -84,7 +84,7 @@ export class QuoteConfigurationService {
         expires,
         id,
         amount: BigInt(quote.inputTokenAmount),
-        maximumAmount: BigInt(quote.outputAmountNet),
+        maximumAmount: quote.outputAmountNet === null ? 0n : BigInt(quote.outputAmountNet),
         dispensation: quote.tribunalQuote ? BigInt(quote.tribunalQuote) : 0n,
         [variableName]: witness,
       },
