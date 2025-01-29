@@ -470,6 +470,15 @@ function QuoteForm() {
                   </span>
                 </div>
                 <div className="flex">
+                  <span className="w-80 font-medium">Net Quote Amount:</span>
+                  <span className="flex-1 font-mono text-sm">
+                    {(
+                      BigInt(quoteMutation.data.quoteOutputAmount) -
+                      BigInt(quoteMutation.data.dispensation)
+                    ).toString()}
+                  </span>
+                </div>
+                <div className="flex">
                   <span className="w-80 font-medium">Delta Amount:</span>
                   <span className="flex-1 font-mono text-sm">
                     {quoteMutation.data.deltaAmount}
