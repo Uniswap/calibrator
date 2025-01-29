@@ -12,8 +12,8 @@ export interface Quote {
   inputTokenAddress: string
   outputTokenAddress: string
   inputTokenAmount: string
-  outputAmountDirect: string
-  outputAmountNet: string
+  outputAmountDirect: string | null
+  outputAmountNet: string | null
   tribunalQuote: string | null
   tribunalQuoteUsd: string | null
 }

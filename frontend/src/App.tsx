@@ -70,9 +70,10 @@ interface QuoteResponse extends QuoteRequest {
   }
   dispensation: string
   dispensationUSD: string
-  spotOutputAmount: string
-  quoteOutputAmount: string
-  deltaAmount: string
+  spotOutputAmount: string | null
+  quoteOutputAmountDirect: string | null
+  quoteOutputAmountNet: string | null
+  deltaAmount: string | null
 }
 
 // Initial timestamp from the provided time
@@ -464,18 +465,15 @@ function QuoteForm() {
                   </span>
                 </div>
                 <div className="flex">
-                  <span className="w-80 font-medium">Quote Output Amount:</span>
+                  <span className="w-80 font-medium">Quote Output Amount (Direct):</span>
                   <span className="flex-1 font-mono text-sm">
-                    {quoteMutation.data.quoteOutputAmount}
+                    {quoteMutation.data.quoteOutputAmountDirect || 'N/A'}
                   </span>
                 </div>
                 <div className="flex">
-                  <span className="w-80 font-medium">Net Quote Amount:</span>
+                  <span className="w-80 font-medium">Quote Output Amount (Net):</span>
                   <span className="flex-1 font-mono text-sm">
-                    {(
-                      BigInt(quoteMutation.data.quoteOutputAmount) -
-                      BigInt(quoteMutation.data.dispensation)
-                    ).toString()}
+                    {quoteMutation.data.quoteOutputAmountNet || 'N/A'}
                   </span>
                 </div>
                 <div className="flex">

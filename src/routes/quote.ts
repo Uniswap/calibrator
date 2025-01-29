@@ -117,14 +117,6 @@ export async function quoteRoutes(
         const rawQuote = await quoteService.getQuote(serviceRequest)
         const quote = convertBigIntsToStrings(rawQuote) as typeof rawQuote
 
-        // Ensure we have an output amount
-        const outputAmount = quote.spotOutputAmount || quote.quoteOutputAmountNet
-        if (!outputAmount) {
-          throw new Error(
-            'Failed to get output amount from either spot or quote price'
-          )
-        }
-
         // Prepare quote for configuration service
         const quoteForConfig: Quote = {
           inputTokenChainId: quote.inputTokenChainId,
@@ -132,10 +124,17 @@ export async function quoteRoutes(
           inputTokenAddress: quote.inputTokenAddress,
           outputTokenAddress: quote.outputTokenAddress,
           inputTokenAmount: quote.inputTokenAmount,
-          outputAmountDirect: quote.quoteOutputAmountDirect || outputAmount,
-          outputAmountNet: outputAmount,
+          outputAmountDirect: quote.quoteOutputAmountDirect || quote.spotOutputAmount,
+          outputAmountNet: quote.quoteOutputAmountNet || quote.spotOutputAmount,
           tribunalQuote: rawQuote.tribunalQuote,
           tribunalQuoteUsd: rawQuote.tribunalQuoteUsd,
+        }
+
+        // Ensure we have an output amount
+        if (!quoteForConfig.outputAmountNet) {
+          throw new Error(
+            'Failed to get output amount from either spot or quote price'
+          )
         }
 
         // Generate arbiter configuration

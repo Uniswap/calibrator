@@ -319,59 +319,66 @@ export class QuoteService {
           ): Promise<bigint>
         }
 
-        // Prepare parameters based on environment
-        const params =
-          process.env.NODE_ENV === 'test'
-            ? {
-                nonce: '0',
-                expires: expiresValue.toString(),
-                allocatorId: lockParameters.allocatorId,
-                amount: preliminaryAmount,
-                minimumAmount: (
-                  (BigInt(preliminaryAmount) *
-                    BigInt(10000 - (context?.slippageBips || 100))) /
-                  10000n
-                ).toString(),
-                baselinePriorityFee: context?.baselinePriorityFee || '0',
-                scalingFactor: context?.scalingFactor || '1000000000100000000',
-              }
-            : {
-                nonce: 0n,
-                expires: BigInt(expiresValue),
-                allocatorId: BigInt(lockParameters.allocatorId),
-                amount: BigInt(preliminaryAmount),
-                minimumAmount:
-                  (BigInt(preliminaryAmount) *
-                    BigInt(10000 - (context?.slippageBips || 100))) /
-                  10000n,
-                baselinePriorityFee: BigInt(
-                  context?.baselinePriorityFee || '0'
-                ),
-                scalingFactor: BigInt(
-                  context?.scalingFactor || '1000000000100000000'
-                ),
-              }
-
-        const dispensation = await tribunalServiceAny.getQuote(
+        // Get initial tribunal quote using preliminary amount
+        const initialDispensation = await tribunalServiceAny.getQuote(
           arbiterMapping[`${inputTokenChainId}-${outputTokenChainId}`]
             ?.address || '0x0000000000000000000000000000000000000000',
           context?.recipient || '0x0000000000000000000000000000000000000000',
-          params.nonce,
-          params.expires,
-          params.allocatorId,
-          params.amount,
+          process.env.NODE_ENV === 'test' ? '0' : 0n,
+          process.env.NODE_ENV === 'test' ? expiresValue.toString() : BigInt(expiresValue),
+          process.env.NODE_ENV === 'test' ? lockParameters.allocatorId : BigInt(lockParameters.allocatorId),
+          process.env.NODE_ENV === 'test' ? preliminaryAmount : BigInt(preliminaryAmount),
           inputTokenChainId,
           context?.recipient || '0x0000000000000000000000000000000000000000',
-          params.amount,
+          process.env.NODE_ENV === 'test' ? preliminaryAmount : BigInt(preliminaryAmount),
           {
             recipient:
               context?.recipient ||
               '0x0000000000000000000000000000000000000000',
-            expires: params.expires,
+            expires: process.env.NODE_ENV === 'test' ? expiresValue.toString() : BigInt(expiresValue),
             token: outputTokenAddress as `0x${string}`,
-            minimumAmount: params.minimumAmount,
-            baselinePriorityFee: params.baselinePriorityFee,
-            scalingFactor: params.scalingFactor,
+            minimumAmount: process.env.NODE_ENV === 'test'
+              ? ((BigInt(preliminaryAmount) * BigInt(10000 - (context?.slippageBips || 100))) / 10000n).toString()
+              : (BigInt(preliminaryAmount) * BigInt(10000 - (context?.slippageBips || 100))) / 10000n,
+            baselinePriorityFee: process.env.NODE_ENV === 'test'
+              ? context?.baselinePriorityFee || '0'
+              : BigInt(context?.baselinePriorityFee || '0'),
+            scalingFactor: process.env.NODE_ENV === 'test'
+              ? context?.scalingFactor || '1000000000100000000'
+              : BigInt(context?.scalingFactor || '1000000000100000000'),
+            salt: '0x3333333333333333333333333333333333333333333333333333333333333333',
+          },
+          outputTokenChainId
+        )
+
+        // Now get the final tribunal quote using the net amount
+        const netAmount = BigInt(preliminaryAmount) - initialDispensation
+        const dispensation = await tribunalServiceAny.getQuote(
+          arbiterMapping[`${inputTokenChainId}-${outputTokenChainId}`]
+            ?.address || '0x0000000000000000000000000000000000000000',
+          context?.recipient || '0x0000000000000000000000000000000000000000',
+          process.env.NODE_ENV === 'test' ? '0' : 0n,
+          process.env.NODE_ENV === 'test' ? expiresValue.toString() : BigInt(expiresValue),
+          process.env.NODE_ENV === 'test' ? lockParameters.allocatorId : BigInt(lockParameters.allocatorId),
+          process.env.NODE_ENV === 'test' ? netAmount.toString() : netAmount,
+          inputTokenChainId,
+          context?.recipient || '0x0000000000000000000000000000000000000000',
+          process.env.NODE_ENV === 'test' ? netAmount.toString() : netAmount,
+          {
+            recipient:
+              context?.recipient ||
+              '0x0000000000000000000000000000000000000000',
+            expires: process.env.NODE_ENV === 'test' ? expiresValue.toString() : BigInt(expiresValue),
+            token: outputTokenAddress as `0x${string}`,
+            minimumAmount: process.env.NODE_ENV === 'test'
+              ? ((netAmount * BigInt(10000 - (context?.slippageBips || 100))) / 10000n).toString()
+              : (netAmount * BigInt(10000 - (context?.slippageBips || 100))) / 10000n,
+            baselinePriorityFee: process.env.NODE_ENV === 'test'
+              ? context?.baselinePriorityFee || '0'
+              : BigInt(context?.baselinePriorityFee || '0'),
+            scalingFactor: process.env.NODE_ENV === 'test'
+              ? context?.scalingFactor || '1000000000100000000'
+              : BigInt(context?.scalingFactor || '1000000000100000000'),
             salt: '0x3333333333333333333333333333333333333333333333333333333333333333',
           },
           outputTokenChainId
