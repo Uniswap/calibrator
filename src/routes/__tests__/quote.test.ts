@@ -187,14 +187,14 @@ describe('Quote Routes', () => {
       expect(response.statusCode).toBe(200)
       const result = JSON.parse(response.payload)
 
-      // Verify arbiter configuration
-      expect(result.arbiterConfiguration).toBeDefined()
-      expect(result.arbiterConfiguration.data.arbiter).toBe(
+      // Verify data and context structure
+      expect(result.data).toBeDefined()
+      expect(result.data.arbiter).toBe(
         '0xf4eA570740Ce552632F19c8E92691c6A5F6374D9'
       )
-      expect(result.arbiterConfiguration.data.mandate).toBeDefined()
+      expect(result.data.mandate).toBeDefined()
 
-      const mandate = result.arbiterConfiguration.data.mandate
+      const mandate = result.data.mandate
       expect(mandate.chainId).toBe(mockQuote.outputTokenChainId)
       expect(mandate.tribunal).toBe(
         '0x339B234fdBa8C5C77c43AA01a6ad38071B7984F1'
@@ -207,10 +207,8 @@ describe('Quote Routes', () => {
         '0x3333333333333333333333333333333333333333333333333333333333333333'
       )
 
-      // Verify witness hash
-      expect(result.arbiterConfiguration.witnessHash).toMatch(
-        /^0x[a-f0-9]{64}$/
-      )
+      // Verify witness hash is in context
+      expect(result.context.witnessHash).toMatch(/^0x[a-f0-9]{64}$/)
     })
 
     it('should return 400 for unsupported chain pair', async () => {
@@ -321,7 +319,7 @@ describe('Quote Routes', () => {
       expect(response.statusCode).toBe(200)
       const result = JSON.parse(response.payload)
 
-      const mandate = result.arbiterConfiguration.data.mandate
+      const mandate = result.data.mandate
       expect(mandate.recipient).toBe(mockQuote.context.recipient)
       // With input amount 1.0, input price 2.0 USD, and output price 1.0 USD
       // Output amount should be 2.0 tokens
