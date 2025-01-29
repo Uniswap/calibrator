@@ -111,9 +111,7 @@ describe('QuoteService', () => {
 
     // Mock TribunalService
     mockTribunalService = {
-      getQuote: jest
-        .fn()
-        .mockImplementation(() => Promise.resolve('50000000000000000')), // 0.05 ETH dispensation
+      getQuote: jest.fn(),
     }
     jest
       .spyOn(await import('../../quote/TribunalService.js'), 'TribunalService')
@@ -291,6 +289,11 @@ describe('QuoteService', () => {
         outputAmountNet: '2000000000000000000000',
       })
 
+    // Mock tribunal quotes
+    mockTribunalService.getQuote
+      .mockResolvedValueOnce('50000000000000000') // Initial quote: 0.05 ETH
+      .mockResolvedValueOnce('50000000000000000') // Final quote: 0.05 ETH
+
     const result = await quoteService.getQuote(mockRequest)
 
     expect(result).toEqual({
@@ -361,13 +364,15 @@ describe('QuoteService', () => {
         outputAmountDirect: '500000000000000000',
         outputAmountNet: '500000000000000000',
       })
+      // Mock final quote attempt failing due to excessive dispensation
+      .mockRejectedValueOnce(
+        new Error('Dispensation amount exceeds intermediate quote amount')
+      )
 
     // Mock tribunal returning a larger dispensation
-    mockTribunalService.getQuote.mockResolvedValueOnce('600000000000000000') // 0.6 ETH dispensation
-
-    // Mock final quote attempt failing due to excessive dispensation
-    mockUniswapProvider.getUniswapPrice
-      .mockRejectedValueOnce(new Error('Dispensation amount exceeds intermediate quote amount'))
+    mockTribunalService.getQuote
+      .mockResolvedValueOnce('600000000000000000') // Initial quote: 0.6 ETH
+      .mockResolvedValueOnce('600000000000000000') // Final quote: 0.6 ETH
 
     const result = await quoteService.getQuote(mockRequest)
 
