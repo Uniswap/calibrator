@@ -161,19 +161,30 @@ export async function quoteRoutes(
         const convertedConfig = convertBigIntsToStrings(
           arbiterConfiguration
         ) as Record<string, unknown>
+        // Extract data from convertedConfig and remove maximumAmount
+        const { maximumAmount, ...configData } = convertedConfig.data as Record<string, any>;
+        
         const response = {
-          arbiterConfiguration: {
-            data: convertedConfig.data,
-            witnessHash: convertedConfig.witnessHash,
+          data: {
+            arbiter: configData.arbiter,
+            sponsor: configData.sponsor,
+            nonce: configData.nonce,
+            expires: configData.expires,
+            id: configData.id,
+            amount: configData.amount,
+            mandate: configData.mandate
           },
-          dispensation: rawQuote.tribunalQuote,
-          dispensationUSD: rawQuote.tribunalQuoteUsd
-            ? `$${(Number(BigInt(rawQuote.tribunalQuoteUsd)) / Math.pow(10, 18)).toFixed(4)}`
-            : null,
-          spotOutputAmount: rawQuote.spotOutputAmount,
-          quoteOutputAmountDirect: rawQuote.quoteOutputAmountDirect,
-          quoteOutputAmountNet: rawQuote.quoteOutputAmountNet,
-          deltaAmount: rawQuote.deltaAmount,
+          context: {
+            dispensation: rawQuote.tribunalQuote,
+            dispensationUSD: rawQuote.tribunalQuoteUsd
+              ? `$${(Number(BigInt(rawQuote.tribunalQuoteUsd)) / Math.pow(10, 18)).toFixed(4)}`
+              : null,
+            spotOutputAmount: rawQuote.spotOutputAmount,
+            quoteOutputAmountDirect: rawQuote.quoteOutputAmountDirect,
+            quoteOutputAmountNet: rawQuote.quoteOutputAmountNet,
+            deltaAmount: rawQuote.deltaAmount,
+            witnessHash: convertedConfig.witnessHash
+          }
         }
 
         reply.send(response)
