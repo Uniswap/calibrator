@@ -203,9 +203,8 @@ describe('Quote Routes', () => {
       // Output amount should be 2.0 tokens
       // With 100 bips (1%) slippage, minimum amount should be 1.98 tokens
       expect(mandate.minimumAmount).toBe('1980000000000000000')
-      expect(mandate.salt).toBe(
-        '0x3333333333333333333333333333333333333333333333333333333333333333'
-      )
+      // Verify salt format: 0x followed by 64 hex characters
+      expect(mandate.salt).toMatch(/^0x[a-f0-9]{64}$/)
 
       // Verify witness hash is in context
       expect(result.context.witnessHash).toMatch(/^0x[a-f0-9]{64}$/)

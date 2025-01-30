@@ -315,7 +315,7 @@ describe('QuoteService', () => {
       minimumAmount: '2089500000000000000000', // 99.5% of output amount (50 bips slippage)
       baselinePriorityFee: '2000000000',
       scalingFactor: '1000000000200000000',
-      salt: '0x3333333333333333333333333333333333333333333333333333333333333333',
+      salt: expect.stringMatching(/^0x[a-f0-9]{64}$/),
     }
 
     expect(mockTribunalService.getQuote).toHaveBeenCalledWith(

@@ -3,6 +3,7 @@ import {
   type Quote,
   type QuoteContext,
 } from '../types/quote.js'
+import crypto from 'crypto'
 
 const resolverTemplate = (
   quote: Quote,
@@ -30,7 +31,7 @@ const resolverTemplate = (
   scalingFactor: context.scalingFactor
     ? BigInt(context.scalingFactor)
     : 1000000000100000000n,
-  salt: '0x3333333333333333333333333333333333333333333333333333333333333333',
+  salt: `0x${crypto.randomBytes(32).toString('hex')}`,
 })
 
 export const arbiterMapping: ArbiterMapping = {

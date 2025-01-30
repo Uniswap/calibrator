@@ -5,6 +5,7 @@ import { QuoteRequest, QuoteResponse } from '../../types/quote.js'
 import { Logger } from '../../utils/logger.js'
 import { TribunalService } from '../quote/TribunalService.js'
 import { arbiterMapping } from '../../config/arbiters.js'
+import crypto from 'crypto'
 
 interface TokenInfo {
   decimals: number
@@ -366,7 +367,7 @@ export class QuoteService {
               process.env.NODE_ENV === 'test'
                 ? context?.scalingFactor || '1000000000100000000'
                 : BigInt(context?.scalingFactor || '1000000000100000000'),
-            salt: '0x3333333333333333333333333333333333333333333333333333333333333333',
+            salt: `0x${crypto.randomBytes(32).toString('hex')}`,
           },
           outputTokenChainId
         )
@@ -415,7 +416,7 @@ export class QuoteService {
               process.env.NODE_ENV === 'test'
                 ? context?.scalingFactor || '1000000000100000000'
                 : BigInt(context?.scalingFactor || '1000000000100000000'),
-            salt: '0x3333333333333333333333333333333333333333333333333333333333333333',
+            salt: `0x${crypto.randomBytes(32).toString('hex')}`,
           },
           outputTokenChainId
         )

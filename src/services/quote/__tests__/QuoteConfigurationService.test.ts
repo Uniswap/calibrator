@@ -5,6 +5,7 @@ import {
   type LockParameters,
   type QuoteContext,
 } from '../../../types/quote'
+import crypto from 'crypto'
 
 interface MandateData {
   chainId: number
@@ -85,9 +86,7 @@ describe('QuoteConfigurationService', () => {
       expect(mandate.scalingFactor.toString()).toBe(
         mockContext.scalingFactor.toString()
       )
-      expect(mandate.salt).toBe(
-        '0x3333333333333333333333333333333333333333333333333333333333333333'
-      )
+      expect(mandate.salt).toMatch(/^0x[a-f0-9]{64}$/)
 
       // Verify witness hash is generated
       expect(result.witnessHash).toMatch(/^0x[a-f0-9]{64}$/)
@@ -204,7 +203,7 @@ describe('QuoteConfigurationService', () => {
       // Verify the hash matches expected format
       expect(result.witnessHash).toMatch(/^0x[a-f0-9]{64}$/)
 
-      // Generate a second hash with same data - should match
+      // Generate a second hash with same data - should be different due to random salt
       const secondResult = await service.generateConfiguration(
         mockQuote,
         mockSponsor,
@@ -212,7 +211,11 @@ describe('QuoteConfigurationService', () => {
         mockLockParameters,
         mockContext
       )
-      expect(result.witnessHash).toBe(secondResult.witnessHash)
+      // Each result should have a valid hash format
+      expect(result.witnessHash).toMatch(/^0x[a-f0-9]{64}$/)
+      expect(secondResult.witnessHash).toMatch(/^0x[a-f0-9]{64}$/)
+      // Hashes should be different due to random salts
+      expect(result.witnessHash).not.toBe(secondResult.witnessHash)
     })
 
     it('should handle complex witness type strings', async () => {
@@ -261,7 +264,7 @@ describe('QuoteConfigurationService', () => {
             minimumAmount: 100n,
             baselinePriorityFee: 1n,
             scalingFactor: 1n,
-            salt: '0x4444444444444444444444444444444444444444444444444444444444444444',
+            salt: `0x${crypto.randomBytes(32).toString('hex')}`,
           }),
         },
       }
@@ -278,7 +281,7 @@ describe('QuoteConfigurationService', () => {
             minimumAmount: 200n,
             baselinePriorityFee: 2n,
             scalingFactor: 2n,
-            salt: '0x8888888888888888888888888888888888888888888888888888888888888888',
+            salt: `0x${crypto.randomBytes(32).toString('hex')}`,
           }),
         },
       }
