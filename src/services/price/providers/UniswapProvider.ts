@@ -10,6 +10,8 @@ import {
 import { Logger } from '../../../utils/logger.js'
 
 const NATIVE_TOKEN = '0x0000000000000000000000000000000000000000'
+const WETH_ADDRESS = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2'
+const WETH_ADDRESS_OP = "0x4200000000000000000000000000000000000006"
 
 export class UniswapProvider implements IUniswapProvider {
   private config: UniswapConfig
@@ -95,14 +97,12 @@ export class UniswapProvider implements IUniswapProvider {
     outputAmountNet?: string;
   }> {
     try {
-      // Use 1 ETH as the default amount if not specified
-      const defaultAmount = '1000000000000000000' // 1 ETH in wei
-      const inputAmount = amount || defaultAmount
+      const inputAmount = amount || '0'
 
-      // If both tokens are native (address(0)), handle dispensation directly
+      // If both tokens are native (address(0)) or weth, handle dispensation directly
       if (
-        tokenIn.address === NATIVE_TOKEN &&
-        tokenOut.address === NATIVE_TOKEN
+        (tokenIn.address === NATIVE_TOKEN || tokenIn.address.toLowerCase() === WETH_ADDRESS || tokenIn.address === WETH_ADDRESS_OP) &&
+        (tokenOut.address === NATIVE_TOKEN || tokenOut.address.toLowerCase() === WETH_ADDRESS || tokenOut.address === WETH_ADDRESS_OP)
       ) {
         const netAmount = dispensationAmount
           ? (BigInt(inputAmount) - BigInt(dispensationAmount)).toString()
@@ -173,7 +173,7 @@ export class UniswapProvider implements IUniswapProvider {
     let secondQuoteAmount: string | undefined
 
     // Handle input side if not native
-    if (tokenIn.address !== NATIVE_TOKEN) {
+    if (tokenIn.address !== NATIVE_TOKEN && tokenIn.address.toLowerCase() !== WETH_ADDRESS.toLowerCase() && tokenIn.address !== WETH_ADDRESS_OP) {
       const inputQuote = await this.fetchIndicativeQuote(
         tokenIn,
         nativeTokenIn,
@@ -199,7 +199,7 @@ export class UniswapProvider implements IUniswapProvider {
 
     // Handle output side if not native
     let directAmount: string
-    if (tokenOut.address !== NATIVE_TOKEN) {
+    if (tokenOut.address !== NATIVE_TOKEN && tokenOut.address.toLowerCase() !== WETH_ADDRESS.toLowerCase() && tokenOut.address !== WETH_ADDRESS_OP) {
       // Get direct quote using full intermediate amount
       const directQuote = await this.fetchIndicativeQuote(
         nativeTokenOut,

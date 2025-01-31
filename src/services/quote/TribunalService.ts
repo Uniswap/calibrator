@@ -167,7 +167,7 @@ export class TribunalService {
         functionName: 'quote',
         args: [
           {
-            chainId: BigInt(chainId),
+            chainId: chainId,
             arbiter: arbiter as `0x${string}`,
             sponsor: sponsor as `0x${string}`,
             nonce,
@@ -193,6 +193,30 @@ export class TribunalService {
       return dispensation
     } catch (error) {
       console.error(`[TribunalService] Error getting tribunal quote: ${error}`)
+      console.error(JSON.stringify({
+        functionName: 'quote',
+        args: [
+          {
+            chainId: BigInt(chainId),
+            arbiter: arbiter as `0x${string}`,
+            sponsor: sponsor as `0x${string}`,
+            nonce,
+            expires,
+            id,
+            maximumAmount,
+          },
+          {
+            recipient: mandate.recipient as `0x${string}`,
+            expires: mandate.expires,
+            token: mandate.token as `0x${string}`,
+            minimumAmount: mandate.minimumAmount,
+            baselinePriorityFee: mandate.baselinePriorityFee,
+            scalingFactor: mandate.scalingFactor,
+            salt: mandate.salt as `0x${string}`,
+          },
+          claimant as `0x${string}`,
+        ],
+      }, 2))
       throw error
     }
   }

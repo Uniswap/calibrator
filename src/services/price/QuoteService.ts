@@ -16,7 +16,8 @@ interface TokenInfo {
 interface CoinGeckoTokenResponse {
   detail_platforms: {
     [key: string]: {
-      decimal_place: number
+      decimal_place: number,
+      decimal_places: number
     }
   }
   symbol: string
@@ -131,12 +132,16 @@ export class QuoteService {
 
       const data = (await response.json()) as CoinGeckoTokenResponse
 
-      if (!data.detail_platforms?.[platform]?.decimal_place || !data.symbol) {
+      const decimalPlaces = data.detail_platforms?.[platform]?.decimal_place ?? data.detail_platforms?.[platform]?.decimal_places
+
+      if (!decimalPlaces || !data.symbol) {
+        this.logger.error(`Invalid token info response format: ${JSON.stringify(data.detail_platforms?.[platform])}`)
+        
         throw new Error('Invalid token info response format')
       }
 
       const info = {
-        decimals: data.detail_platforms[platform].decimal_place,
+        decimals: decimalPlaces,
         symbol: data.symbol.toUpperCase(),
         timestamp: now,
       }
