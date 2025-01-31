@@ -138,6 +138,7 @@ describe('QuoteService', () => {
     await quoteService.initialize()
 
     const mockRequest = {
+      sponsor: '0x1111111111111111111111111111111111111111',
       inputTokenChainId: 1,
       inputTokenAddress: '0x1234',
       inputTokenAmount: '1000000000000000000', // 1 ETH
@@ -176,6 +177,7 @@ describe('QuoteService', () => {
     await quoteService.initialize()
 
     const mockRequest = {
+      sponsor: '0x1111111111111111111111111111111111111111',
       inputTokenChainId: 1,
       inputTokenAddress: '0x1234',
       inputTokenAmount: '1000000000000000000',
@@ -212,6 +214,7 @@ describe('QuoteService', () => {
     await quoteService.initialize()
 
     const mockRequest = {
+      sponsor: '0x1111111111111111111111111111111111111111',
       inputTokenChainId: 1,
       inputTokenAddress: '0x1234',
       inputTokenAmount: '1000000000000000000',
@@ -246,6 +249,7 @@ describe('QuoteService', () => {
     await quoteService.initialize()
 
     const mockRequest = {
+      sponsor: '0x1111111111111111111111111111111111111111',
       inputTokenChainId: 10, // Optimism
       inputTokenAddress: '0x1234',
       inputTokenAmount: '1000000000000000000', // 1 ETH
@@ -337,6 +341,7 @@ describe('QuoteService', () => {
     await quoteService.initialize()
 
     const mockRequest = {
+      sponsor: '0x1111111111111111111111111111111111111111',
       inputTokenChainId: 10, // Optimism
       inputTokenAddress: '0x1234',
       inputTokenAmount: '1000000000000000000', // 1 ETH
@@ -392,6 +397,7 @@ describe('QuoteService', () => {
     await quoteService.initialize()
 
     const mockRequest = {
+      sponsor: '0x1111111111111111111111111111111111111111',
       inputTokenChainId: 999, // Unsupported chain
       inputTokenAddress: '0x1234',
       inputTokenAmount: '1000000000000000000',

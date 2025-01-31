@@ -35,16 +35,6 @@ describe('TribunalService', () => {
       const chainId = 10
       const result = await tribunalService.verifyMandateHash(mandate, chainId)
 
-      // Log the hashes and inputs for debugging
-      console.dir(
-        {
-          mandate,
-          chainId,
-          result,
-        },
-        { depth: null }
-      )
-
       // Assertions
       expect(result.onChainHash).toMatch(/^0x[a-f0-9]{64}$/)
       expect(result.localHash).toMatch(/^0x[a-f0-9]{64}$/)

@@ -33,7 +33,7 @@ interface QuoteRequest {
   inputTokenAmount: string
   outputTokenChainId: number
   outputTokenAddress: string
-  sponsor?: string
+  sponsor: string
   duration?: number
   lockParameters?: LockParameters
   context?: QuoteContext
@@ -472,13 +472,18 @@ function QuoteForm() {
                   </span>
                 </div>
                 <div className="flex">
-                  <span className="w-80 font-medium">Quote Output Amount (Direct):</span>
+                  <span className="w-80 font-medium">
+                    Quote Output Amount (Direct):
+                  </span>
                   <span className="flex-1 font-mono text-sm">
-                    {quoteMutation.data.context.quoteOutputAmountDirect || 'N/A'}
+                    {quoteMutation.data.context.quoteOutputAmountDirect ||
+                      'N/A'}
                   </span>
                 </div>
                 <div className="flex">
-                  <span className="w-80 font-medium">Quote Output Amount (Net):</span>
+                  <span className="w-80 font-medium">
+                    Quote Output Amount (Net):
+                  </span>
                   <span className="flex-1 font-mono text-sm">
                     {quoteMutation.data.context.quoteOutputAmountNet || 'N/A'}
                   </span>

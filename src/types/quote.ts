@@ -7,6 +7,7 @@ export interface LockParameters {
 }
 
 export interface Quote {
+  sponsor: string
   inputTokenChainId: number
   outputTokenChainId: number
   inputTokenAddress: string
@@ -61,6 +62,7 @@ export interface ArbiterMapping {
 }
 
 export interface QuoteRequest {
+  sponsor: string
   inputTokenChainId: number
   inputTokenAddress: string
   inputTokenAmount: string
@@ -71,6 +73,7 @@ export interface QuoteRequest {
 }
 
 export interface QuoteResponse {
+  sponsor: string
   inputTokenChainId: number
   inputTokenAddress: string
   inputTokenAmount: string

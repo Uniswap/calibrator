@@ -16,7 +16,7 @@ interface TokenInfo {
 interface CoinGeckoTokenResponse {
   detail_platforms: {
     [key: string]: {
-      decimal_place: number,
+      decimal_place: number
       decimal_places: number
     }
   }
@@ -132,11 +132,15 @@ export class QuoteService {
 
       const data = (await response.json()) as CoinGeckoTokenResponse
 
-      const decimalPlaces = data.detail_platforms?.[platform]?.decimal_place ?? data.detail_platforms?.[platform]?.decimal_places
+      const decimalPlaces =
+        data.detail_platforms?.[platform]?.decimal_place ??
+        data.detail_platforms?.[platform]?.decimal_places
 
       if (!decimalPlaces || !data.symbol) {
-        this.logger.error(`Invalid token info response format: ${JSON.stringify(data.detail_platforms?.[platform])}`)
-        
+        this.logger.error(
+          `Invalid token info response format: ${JSON.stringify(data.detail_platforms?.[platform])}`
+        )
+
         throw new Error('Invalid token info response format')
       }
 
@@ -167,6 +171,7 @@ export class QuoteService {
 
   async getQuote(request: QuoteRequest): Promise<QuoteResponse> {
     const {
+      sponsor,
       inputTokenChainId,
       inputTokenAddress,
       inputTokenAmount,
@@ -284,239 +289,220 @@ export class QuoteService {
       this.logger.error(`Error fetching spot prices: ${error}`)
     }
 
-    // Get cross-chain message cost (dispensation) if needed
-    if (lockParameters?.allocatorId !== undefined) {
-      try {
-        // First get a preliminary quote without dispensation
-        const preliminaryQuote = await this.uniswapProvider.getUniswapPrice(
-          inputToken,
-          outputToken,
-          inputTokenAmount
-        )
-        const preliminaryAmount = preliminaryQuote.price
+    // Get initial Uniswap quote first
+    try {
+      const initialQuote = await this.uniswapProvider.getUniswapPrice(
+        inputToken,
+        outputToken,
+        inputTokenAmount
+      )
 
-        // Get tribunal quote using preliminary amount
-        const tribunalService = new TribunalService()
-        const expiresValue =
-          context?.expires || Math.floor(Date.now() / 1000) + 3600
+      const initialQuoteAmount =
+        initialQuote.outputAmountDirect || initialQuote.price
+      quoteOutputAmountDirect = initialQuoteAmount
+      quoteOutputAmountNet = initialQuoteAmount
 
-        // Cast TribunalService to include test environment methods
-        const tribunalServiceAny = tribunalService as TribunalService & {
-          getQuote(
-            arbiter: string,
-            sponsor: string,
-            nonce: string | bigint,
-            expires: string | bigint,
-            id: string | bigint,
-            maximumAmount: string | bigint,
-            chainId: number,
-            claimant: string,
-            claimAmount: string | bigint,
-            mandate: {
-              recipient: string
-              expires: string | bigint
-              token: string
-              minimumAmount: string | bigint
-              baselinePriorityFee: string | bigint
-              scalingFactor: string | bigint
-              salt: string
-            },
-            targetChainId: number
-          ): Promise<bigint>
-        }
-
-        // Get initial tribunal quote using preliminary amount
-        const initialDispensation = await tribunalServiceAny.getQuote(
-          arbiterMapping[`${inputTokenChainId}-${outputTokenChainId}`]
-            ?.address || '0x0000000000000000000000000000000000000000',
-          context?.recipient || '0x0000000000000000000000000000000000000000',
-          process.env.NODE_ENV === 'test' ? '0' : 0n,
-          process.env.NODE_ENV === 'test'
-            ? expiresValue.toString()
-            : BigInt(expiresValue),
-          process.env.NODE_ENV === 'test'
-            ? lockParameters.allocatorId
-            : BigInt(lockParameters.allocatorId),
-          process.env.NODE_ENV === 'test'
-            ? preliminaryAmount
-            : BigInt(preliminaryAmount),
-          inputTokenChainId,
-          context?.recipient || '0x0000000000000000000000000000000000000000',
-          process.env.NODE_ENV === 'test'
-            ? preliminaryAmount
-            : BigInt(preliminaryAmount),
-          {
-            recipient:
-              context?.recipient ||
-              '0x0000000000000000000000000000000000000000',
-            expires:
-              process.env.NODE_ENV === 'test'
-                ? expiresValue.toString()
-                : BigInt(expiresValue),
-            token: outputTokenAddress as `0x${string}`,
-            minimumAmount:
-              process.env.NODE_ENV === 'test'
-                ? (
-                    (BigInt(preliminaryAmount) *
-                      BigInt(10000 - (context?.slippageBips || 100))) /
-                    10000n
-                  ).toString()
-                : (BigInt(preliminaryAmount) *
-                    BigInt(10000 - (context?.slippageBips || 100))) /
-                  10000n,
-            baselinePriorityFee:
-              process.env.NODE_ENV === 'test'
-                ? context?.baselinePriorityFee || '0'
-                : BigInt(context?.baselinePriorityFee || '0'),
-            scalingFactor:
-              process.env.NODE_ENV === 'test'
-                ? context?.scalingFactor || '1000000000100000000'
-                : BigInt(context?.scalingFactor || '1000000000100000000'),
-            salt: `0x${crypto.randomBytes(32).toString('hex')}`,
-          },
-          outputTokenChainId
-        )
-
-        // Now get the final tribunal quote using the net amount
-        const netAmount =
-          BigInt(preliminaryAmount) - BigInt(initialDispensation)
-        const dispensation = await tribunalServiceAny.getQuote(
-          arbiterMapping[`${inputTokenChainId}-${outputTokenChainId}`]
-            ?.address || '0x0000000000000000000000000000000000000000',
-          context?.recipient || '0x0000000000000000000000000000000000000000',
-          process.env.NODE_ENV === 'test' ? '0' : 0n,
-          process.env.NODE_ENV === 'test'
-            ? expiresValue.toString()
-            : BigInt(expiresValue),
-          process.env.NODE_ENV === 'test'
-            ? lockParameters.allocatorId
-            : BigInt(lockParameters.allocatorId),
-          process.env.NODE_ENV === 'test' ? netAmount.toString() : netAmount,
-          inputTokenChainId,
-          context?.recipient || '0x0000000000000000000000000000000000000000',
-          process.env.NODE_ENV === 'test' ? netAmount.toString() : netAmount,
-          {
-            recipient:
-              context?.recipient ||
-              '0x0000000000000000000000000000000000000000',
-            expires:
-              process.env.NODE_ENV === 'test'
-                ? expiresValue.toString()
-                : BigInt(expiresValue),
-            token: outputTokenAddress as `0x${string}`,
-            minimumAmount:
-              process.env.NODE_ENV === 'test'
-                ? (
-                    (netAmount *
-                      BigInt(10000 - (context?.slippageBips || 100))) /
-                    10000n
-                  ).toString()
-                : (netAmount * BigInt(10000 - (context?.slippageBips || 100))) /
-                  10000n,
-            baselinePriorityFee:
-              process.env.NODE_ENV === 'test'
-                ? context?.baselinePriorityFee || '0'
-                : BigInt(context?.baselinePriorityFee || '0'),
-            scalingFactor:
-              process.env.NODE_ENV === 'test'
-                ? context?.scalingFactor || '1000000000100000000'
-                : BigInt(context?.scalingFactor || '1000000000100000000'),
-            salt: `0x${crypto.randomBytes(32).toString('hex')}`,
-          },
-          outputTokenChainId
-        )
-
-        tribunalQuote = dispensation.toString()
-        this.logger.info(
-          `Cross-chain message cost (dispensation): ${tribunalQuote}`
-        )
-
-        // Get ETH price to convert dispensation to USD
-        const ethToken: Token = {
-          address: '0x0000000000000000000000000000000000000000',
-          chainId: 1, // Ethereum mainnet
-          decimals: 18,
-          symbol: 'ETH',
-        }
-        const ethPrice = await this.coinGeckoProvider.getUsdPrice(ethToken)
-
-        if (ethPrice) {
-          this.logger.info(`ETH price from CoinGecko: ${ethPrice.price}`)
-          this.logger.info(`Dispensation in wei: ${tribunalQuote}`)
-
-          // ethPrice.price is already in wei (18 decimals)
-          // Calculate USD value: (wei * price in wei) / 10^18
-          const dispensationUsd =
-            (BigInt(tribunalQuote) * BigInt(ethPrice.price)) /
-            BigInt(10n ** 18n)
-          tribunalQuoteUsd = dispensationUsd.toString()
-
-          this.logger.info(
-            `Cross-chain message cost in USD (raw): ${dispensationUsd}`
-          )
-          this.logger.info(
-            `Cross-chain message cost in USD (formatted): ${Number(dispensationUsd) / 1e18}`
-          )
-        }
-
-        // Store the tribunal quote values before attempting final quote
-        const finalTribunalQuote = tribunalQuote
-        const finalTribunalQuoteUsd = tribunalQuoteUsd
-
-        // Now get final quote with dispensation
-        try {
-          const quote = await this.uniswapProvider.getUniswapPrice(
-            inputToken,
-            outputToken,
-            inputTokenAmount,
-            tribunalQuote
-          )
-
-          quoteOutputAmountDirect = quote.outputAmountDirect || quote.price
-          quoteOutputAmountNet = quote.outputAmountNet || quote.price
-
-          // Only calculate delta if we have both spot and quote prices
-          if (spotOutputAmount !== null && quoteOutputAmountNet !== null) {
-            const delta =
-              BigInt(quoteOutputAmountNet) - BigInt(spotOutputAmount)
-            deltaAmount = delta.toString()
-          }
-
-          this.logger.info(
-            `Uniswap quote amount (direct): ${quoteOutputAmountDirect}`
-          )
-          this.logger.info(
-            `Uniswap quote amount (net): ${quoteOutputAmountNet}`
-          )
-          this.logger.info(`Calculated delta: ${deltaAmount}`)
-        } catch (error) {
-          // If getting the final quote fails, we still want to return the tribunal quote
-          this.logger.error(
-            `Error getting final quote with dispensation: ${error}`
-          )
-          quoteOutputAmountDirect = null
-          quoteOutputAmountNet = null
-          deltaAmount = null // Set to null since we don't have a valid quote
-          // Restore the tribunal quote values
-          tribunalQuote = finalTribunalQuote
-          tribunalQuoteUsd = finalTribunalQuoteUsd
-        }
-      } catch (error) {
-        this.logger.error(`Error getting quote with dispensation: ${error}`)
+      // Calculate initial delta if we have both spot and quote prices
+      if (spotOutputAmount !== null && initialQuoteAmount !== null) {
+        const delta = BigInt(initialQuoteAmount) - BigInt(spotOutputAmount)
+        deltaAmount = delta.toString()
       }
-    } else {
-      // No dispensation needed, get regular quote
+
+      this.logger.info(`Initial Uniswap quote amount: ${initialQuoteAmount}`)
+      this.logger.info(`Initial calculated delta: ${deltaAmount}`)
+
+      // Try to get tribunal quote if needed
+      const tribunalService = new TribunalService()
+      const expiresValue =
+        context?.expires || Math.floor(Date.now() / 1000) + 3600
+
+      // Cast TribunalService to include test environment methods
+      const tribunalServiceAny = tribunalService as TribunalService & {
+        getQuote(
+          arbiter: string,
+          sponsor: string,
+          nonce: string | bigint,
+          expires: string | bigint,
+          id: string | bigint,
+          maximumAmount: string | bigint,
+          chainId: number,
+          claimant: string,
+          claimAmount: string | bigint,
+          mandate: {
+            recipient: string
+            expires: string | bigint
+            token: string
+            minimumAmount: string | bigint
+            baselinePriorityFee: string | bigint
+            scalingFactor: string | bigint
+            salt: string
+          },
+          targetChainId: number
+        ): Promise<bigint>
+      }
+
+      // Get initial tribunal quote using initial quote amount
+      const initialDispensation = await tribunalServiceAny.getQuote(
+        arbiterMapping[`${inputTokenChainId}-${outputTokenChainId}`]?.address ||
+          '0x0000000000000000000000000000000000000000',
+        context?.recipient ||
+          sponsor ||
+          '0x0000000000000000000000000000000000000000',
+        process.env.NODE_ENV === 'test' ? '0' : 0n,
+        process.env.NODE_ENV === 'test'
+          ? expiresValue.toString()
+          : BigInt(expiresValue),
+        process.env.NODE_ENV === 'test'
+          ? (lockParameters?.allocatorId || '0').toString()
+          : BigInt(lockParameters?.allocatorId || '0'),
+        process.env.NODE_ENV === 'test'
+          ? initialQuoteAmount
+          : BigInt(initialQuoteAmount),
+        inputTokenChainId,
+        context?.recipient ||
+          sponsor ||
+          '0x0000000000000000000000000000000000000000',
+        process.env.NODE_ENV === 'test'
+          ? initialQuoteAmount
+          : BigInt(initialQuoteAmount),
+        {
+          recipient:
+            context?.recipient ||
+            sponsor ||
+            '0x0000000000000000000000000000000000000000',
+          expires:
+            process.env.NODE_ENV === 'test'
+              ? expiresValue.toString()
+              : BigInt(expiresValue),
+          token: outputTokenAddress as `0x${string}`,
+          minimumAmount:
+            process.env.NODE_ENV === 'test'
+              ? (
+                  (BigInt(initialQuoteAmount) *
+                    BigInt(10000 - (context?.slippageBips || 100))) /
+                  10000n
+                ).toString()
+              : (BigInt(initialQuoteAmount) *
+                  BigInt(10000 - (context?.slippageBips || 100))) /
+                10000n,
+          baselinePriorityFee:
+            process.env.NODE_ENV === 'test'
+              ? context?.baselinePriorityFee || '0'
+              : BigInt(context?.baselinePriorityFee || '0'),
+          scalingFactor:
+            process.env.NODE_ENV === 'test'
+              ? context?.scalingFactor || '1000000000100000000'
+              : BigInt(context?.scalingFactor || '1000000000100000000'),
+          salt: `0x${crypto.randomBytes(32).toString('hex')}`,
+        },
+        outputTokenChainId
+      )
+
+      // Now get the final tribunal quote using the net amount
+      const netAmount = BigInt(initialQuoteAmount) - BigInt(initialDispensation)
+      const dispensation = await tribunalServiceAny.getQuote(
+        arbiterMapping[`${inputTokenChainId}-${outputTokenChainId}`]?.address ||
+          '0x0000000000000000000000000000000000000000',
+        context?.recipient ||
+          sponsor ||
+          '0x0000000000000000000000000000000000000000',
+        process.env.NODE_ENV === 'test' ? '0' : 0n,
+        process.env.NODE_ENV === 'test'
+          ? expiresValue.toString()
+          : BigInt(expiresValue),
+        process.env.NODE_ENV === 'test'
+          ? (lockParameters?.allocatorId || '0').toString()
+          : BigInt(lockParameters?.allocatorId || '0'),
+        process.env.NODE_ENV === 'test'
+          ? netAmount.toString()
+          : BigInt(netAmount),
+        inputTokenChainId,
+        context?.recipient ||
+          sponsor ||
+          '0x0000000000000000000000000000000000000000',
+        process.env.NODE_ENV === 'test'
+          ? netAmount.toString()
+          : BigInt(netAmount),
+        {
+          recipient:
+            context?.recipient ||
+            sponsor ||
+            '0x0000000000000000000000000000000000000000',
+          expires:
+            process.env.NODE_ENV === 'test'
+              ? expiresValue.toString()
+              : BigInt(expiresValue),
+          token: outputTokenAddress as `0x${string}`,
+          minimumAmount:
+            process.env.NODE_ENV === 'test'
+              ? (
+                  (netAmount * BigInt(10000 - (context?.slippageBips || 100))) /
+                  10000n
+                ).toString()
+              : (netAmount * BigInt(10000 - (context?.slippageBips || 100))) /
+                10000n,
+          baselinePriorityFee:
+            process.env.NODE_ENV === 'test'
+              ? context?.baselinePriorityFee || '0'
+              : BigInt(context?.baselinePriorityFee || '0'),
+          scalingFactor:
+            process.env.NODE_ENV === 'test'
+              ? context?.scalingFactor || '1000000000100000000'
+              : BigInt(context?.scalingFactor || '1000000000100000000'),
+          salt: `0x${crypto.randomBytes(32).toString('hex')}`,
+        },
+        outputTokenChainId
+      )
+
+      tribunalQuote = dispensation.toString()
+      this.logger.info(
+        `Cross-chain message cost (dispensation): ${tribunalQuote}`
+      )
+
+      // Get ETH price to convert dispensation to USD
+      const ethToken: Token = {
+        address: '0x0000000000000000000000000000000000000000',
+        chainId: 1, // Ethereum mainnet
+        decimals: 18,
+        symbol: 'ETH',
+      }
+      const ethPrice = await this.coinGeckoProvider.getUsdPrice(ethToken)
+
+      if (ethPrice) {
+        this.logger.info(`ETH price from CoinGecko: ${ethPrice.price}`)
+        this.logger.info(`Dispensation in wei: ${tribunalQuote}`)
+
+        // ethPrice.price is already in wei (18 decimals)
+        // Calculate USD value: (wei * price in wei) / 10^18
+        const dispensationUsd =
+          (BigInt(tribunalQuote) * BigInt(ethPrice.price)) / BigInt(10n ** 18n)
+        tribunalQuoteUsd = dispensationUsd.toString()
+
+        this.logger.info(
+          `Cross-chain message cost in USD (raw): ${dispensationUsd}`
+        )
+        this.logger.info(
+          `Cross-chain message cost in USD (formatted): ${Number(dispensationUsd) / 1e18}`
+        )
+      }
+
+      // Store the tribunal quote values before attempting final quote
+      const finalTribunalQuote = tribunalQuote
+      const finalTribunalQuoteUsd = tribunalQuoteUsd
+
+      // Now get final quote with dispensation if we have one
       try {
         const quote = await this.uniswapProvider.getUniswapPrice(
           inputToken,
           outputToken,
-          inputTokenAmount
+          inputTokenAmount,
+          tribunalQuote || undefined
         )
 
         quoteOutputAmountDirect = quote.outputAmountDirect || quote.price
         quoteOutputAmountNet = quote.outputAmountNet || quote.price
 
-        // Only calculate delta if we have both spot and quote prices
+        // Calculate delta if we have both spot and quote prices
         if (spotOutputAmount !== null && quoteOutputAmountNet !== null) {
           const delta = BigInt(quoteOutputAmountNet) - BigInt(spotOutputAmount)
           deltaAmount = delta.toString()
@@ -528,11 +514,25 @@ export class QuoteService {
         this.logger.info(`Uniswap quote amount (net): ${quoteOutputAmountNet}`)
         this.logger.info(`Calculated delta: ${deltaAmount}`)
       } catch (error) {
-        this.logger.error(`Error fetching Uniswap quote: ${error}`)
+        // If getting the final quote fails and we have a tribunal quote,
+        // we still want to return the tribunal quote
+        this.logger.error(
+          `Error getting final quote with dispensation: ${error}`
+        )
+        if (tribunalQuote) {
+          quoteOutputAmountDirect = null
+          quoteOutputAmountNet = null
+          deltaAmount = null
+          tribunalQuote = finalTribunalQuote
+          tribunalQuoteUsd = finalTribunalQuoteUsd
+        }
       }
+    } catch (error) {
+      this.logger.error(`Error getting quote with dispensation: ${error}`)
     }
 
     return {
+      sponsor,
       inputTokenChainId,
       inputTokenAddress,
       inputTokenAmount: inputTokenAmount.toString(),

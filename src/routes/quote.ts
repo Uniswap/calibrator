@@ -7,6 +7,7 @@ import { LockParameters, QuoteContext, Quote } from '../types/quote.js'
 
 // Define the request schema that matches the service types
 interface ServiceQuoteRequest {
+  sponsor: string
   inputTokenChainId: number
   outputTokenChainId: number
   inputTokenAddress: string
@@ -17,11 +18,12 @@ interface ServiceQuoteRequest {
 }
 
 const QuoteRequestSchema = Type.Object({
+  sponsor: Type.RegEx(/^0x[a-fA-F0-9]{40}$/),
   inputTokenChainId: Type.Number(),
-  inputTokenAddress: Type.String(),
+  inputTokenAddress: Type.RegEx(/^0x[a-fA-F0-9]{40}$/),
   inputTokenAmount: Type.String(),
   outputTokenChainId: Type.Number(),
-  outputTokenAddress: Type.String(),
+  outputTokenAddress: Type.RegEx(/^0x[a-fA-F0-9]{40}$/),
   lockParameters: Type.Optional(
     Type.Object({
       allocatorId: Type.String(),
@@ -91,6 +93,7 @@ export async function quoteRoutes(
       try {
         // Convert request body to service types
         const serviceRequest: ServiceQuoteRequest = {
+          sponsor: request.body.sponsor,
           inputTokenChainId: request.body.inputTokenChainId,
           outputTokenChainId: request.body.outputTokenChainId,
           inputTokenAddress: request.body.inputTokenAddress,
@@ -119,12 +122,14 @@ export async function quoteRoutes(
 
         // Prepare quote for configuration service
         const quoteForConfig: Quote = {
+          sponsor: serviceRequest.sponsor,
           inputTokenChainId: quote.inputTokenChainId,
           outputTokenChainId: quote.outputTokenChainId,
           inputTokenAddress: quote.inputTokenAddress,
           outputTokenAddress: quote.outputTokenAddress,
           inputTokenAmount: quote.inputTokenAmount,
-          outputAmountDirect: quote.quoteOutputAmountDirect || quote.spotOutputAmount,
+          outputAmountDirect:
+            quote.quoteOutputAmountDirect || quote.spotOutputAmount,
           outputAmountNet: quote.quoteOutputAmountNet || quote.spotOutputAmount,
           tribunalQuote: rawQuote.tribunalQuote,
           tribunalQuoteUsd: rawQuote.tribunalQuoteUsd,
@@ -141,7 +146,7 @@ export async function quoteRoutes(
         const arbiterConfiguration =
           await quoteConfigService.generateConfiguration(
             quoteForConfig,
-            '0x0000000000000000000000000000000000000000', // Default sponsor
+            serviceRequest.sponsor as `0x${string}`,
             3600, // 1 hour duration
             serviceRequest.lockParameters || {
               allocatorId: '0',
@@ -161,9 +166,30 @@ export async function quoteRoutes(
         const convertedConfig = convertBigIntsToStrings(
           arbiterConfiguration
         ) as Record<string, unknown>
-        // Extract data from convertedConfig and remove maximumAmount
-        const { maximumAmount, ...configData } = convertedConfig.data as Record<string, any>;
-        
+        // Extract data from convertedConfig
+        const { ...configData } = convertedConfig.data as Record<
+          string,
+          {
+            arbiter: string
+            sponsor: string
+            nonce: string | null
+            expires: string
+            id: string
+            amount: string
+            mandate: {
+              chainId: number
+              tribunal: string
+              recipient: string
+              expires: string
+              token: string
+              minimumAmount: string
+              baselinePriorityFee: string
+              scalingFactor: string
+              salt: string
+            }
+          }
+        >
+
         const response = {
           data: {
             arbiter: configData.arbiter,
@@ -172,7 +198,7 @@ export async function quoteRoutes(
             expires: configData.expires,
             id: configData.id,
             amount: configData.amount,
-            mandate: configData.mandate
+            mandate: configData.mandate,
           },
           context: {
             dispensation: rawQuote.tribunalQuote,
@@ -183,8 +209,8 @@ export async function quoteRoutes(
             quoteOutputAmountDirect: rawQuote.quoteOutputAmountDirect,
             quoteOutputAmountNet: rawQuote.quoteOutputAmountNet,
             deltaAmount: rawQuote.deltaAmount,
-            witnessHash: convertedConfig.witnessHash
-          }
+            witnessHash: convertedConfig.witnessHash,
+          },
         }
 
         reply.send(response)

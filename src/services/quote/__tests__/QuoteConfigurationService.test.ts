@@ -22,6 +22,7 @@ interface MandateData {
 describe('QuoteConfigurationService', () => {
   const service = new QuoteConfigurationService(arbiterMapping)
   const mockQuote: Quote = {
+    sponsor: '0x1111111111111111111111111111111111111111',
     inputTokenAddress: '0x4444444444444444444444444444444444444444',
     inputTokenAmount: '1000000000000000000',
     inputTokenChainId: 10,

@@ -138,6 +138,7 @@ describe('Quote Routes', () => {
   describe('POST /quote', () => {
     it('should return quote with arbiter configuration for Optimism -> Base', async () => {
       const mockQuote = {
+        sponsor: '0x1111111111111111111111111111111111111111',
         inputTokenAddress: '0x4444444444444444444444444444444444444444',
         inputTokenChainId: 10,
         inputTokenAmount: '1000000000000000000',
@@ -212,6 +213,7 @@ describe('Quote Routes', () => {
 
     it('should return 400 for unsupported chain pair', async () => {
       const mockQuote = {
+        sponsor: '0x1111111111111111111111111111111111111111',
         inputTokenAddress: '0x4444444444444444444444444444444444444444',
         inputTokenChainId: 10,
         inputTokenAmount: '1000000000000000000',
@@ -268,6 +270,7 @@ describe('Quote Routes', () => {
 
     it('should handle custom context parameters', async () => {
       const mockQuote = {
+        sponsor: '0x1111111111111111111111111111111111111111',
         inputTokenAddress: '0x4444444444444444444444444444444444444444',
         inputTokenChainId: 10,
         inputTokenAmount: '1000000000000000000',
