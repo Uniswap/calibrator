@@ -1,4 +1,4 @@
-import { Address, encodeAbiParameters, keccak256, concat } from 'viem'
+import { Address, encodeAbiParameters, keccak256, concat, toBytes } from 'viem'
 import type {
   ArbiterMapping,
   CompactData,
@@ -84,7 +84,8 @@ export class QuoteConfigurationService {
         expires,
         id,
         amount: BigInt(quote.inputTokenAmount),
-        maximumAmount: quote.outputAmountNet === null ? 0n : BigInt(quote.outputAmountNet),
+        maximumAmount:
+          quote.outputAmountNet === null ? 0n : BigInt(quote.outputAmountNet),
         dispensation: quote.tribunalQuote ? BigInt(quote.tribunalQuote) : 0n,
         [variableName]: witness,
       },
@@ -175,5 +176,71 @@ export class QuoteConfigurationService {
 
     // Concatenate and hash
     return keccak256(concat([typeHash, encodedData]))
+  }
+
+  public deriveMandateHash(
+    chainId: number,
+    tribunal: string,
+    mandate: {
+      recipient: string
+      expires: bigint
+      token: string
+      minimumAmount: bigint
+      baselinePriorityFee: bigint
+      scalingFactor: bigint
+      salt: string
+    }
+  ): `0x${string}` {
+    // Calculate MANDATE_TYPEHASH to match Solidity's EIP-712 typed data
+    const MANDATE_TYPE_STRING =
+      'Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)'
+    const MANDATE_TYPEHASH = keccak256(toBytes(MANDATE_TYPE_STRING))
+
+    // Log the inputs for debugging
+    console.log('Local hash calculation:', {
+      inputs: {
+        chainId: BigInt(chainId),
+        tribunal: tribunal.toLowerCase(),
+        recipient: mandate.recipient.toLowerCase(),
+        expires: mandate.expires.toString(),
+        token: mandate.token.toLowerCase(),
+        minimumAmount: mandate.minimumAmount.toString(),
+        baselinePriorityFee: mandate.baselinePriorityFee.toString(),
+        scalingFactor: mandate.scalingFactor.toString(),
+        salt: mandate.salt,
+      },
+      MANDATE_TYPEHASH,
+    })
+
+    // Now encode all the parameters with the typehash, matching the contract's abi.encode
+    const encodedData = encodeAbiParameters(
+      [
+        { type: 'bytes32' }, // MANDATE_TYPEHASH
+        { type: 'uint256' }, // block.chainid
+        { type: 'address' }, // address(this)
+        { type: 'address' }, // mandate.recipient
+        { type: 'uint256' }, // mandate.expires
+        { type: 'address' }, // mandate.token
+        { type: 'uint256' }, // mandate.minimumAmount
+        { type: 'uint256' }, // mandate.baselinePriorityFee
+        { type: 'uint256' }, // mandate.scalingFactor
+        { type: 'bytes32' }, // mandate.salt
+      ],
+      [
+        MANDATE_TYPEHASH,
+        BigInt(chainId),
+        tribunal.toLowerCase() as `0x${string}`,
+        mandate.recipient.toLowerCase() as `0x${string}`,
+        mandate.expires,
+        mandate.token.toLowerCase() as `0x${string}`,
+        mandate.minimumAmount,
+        mandate.baselinePriorityFee,
+        mandate.scalingFactor,
+        mandate.salt as `0x${string}`,
+      ]
+    )
+
+    // Return the final hash
+    return keccak256(encodedData)
   }
 }

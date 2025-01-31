@@ -1,5 +1,6 @@
 import { createPublicClient, http, PublicClient } from 'viem'
 import { mainnet, optimism, base } from 'viem/chains'
+import { QuoteConfigurationService } from './QuoteConfigurationService.js'
 
 const TRIBUNAL_ABI = [
   {
@@ -39,12 +40,30 @@ const TRIBUNAL_ABI = [
     stateMutability: 'view',
     type: 'function',
   },
+  {
+    inputs: [
+      { name: 'chainId', type: 'uint256' },
+      { name: 'tribunal', type: 'address' },
+      { name: 'recipient', type: 'address' },
+      { name: 'expires', type: 'uint256' },
+      { name: 'token', type: 'address' },
+      { name: 'minimumAmount', type: 'uint256' },
+      { name: 'baselinePriorityFee', type: 'uint256' },
+      { name: 'scalingFactor', type: 'uint256' },
+      { name: 'salt', type: 'bytes32' },
+    ],
+    name: 'deriveMandateHash',
+    outputs: [{ type: 'bytes32' }],
+    stateMutability: 'pure',
+    type: 'function',
+  },
 ] as const
 
 export class TribunalService {
   private ethereumClient: PublicClient
   private optimismClient: PublicClient
   private baseClient: PublicClient
+  private quoteConfigService: QuoteConfigurationService
 
   constructor() {
     // Configure clients with specific settings for each chain
@@ -81,6 +100,9 @@ export class TribunalService {
       chain: base,
       transport: http(baseRpcUrl),
     }) as PublicClient
+
+    // Initialize QuoteConfigurationService
+    this.quoteConfigService = new QuoteConfigurationService({})
   }
 
   private getClientForChain(chainId: number): PublicClient {
@@ -171,6 +193,113 @@ export class TribunalService {
       return dispensation
     } catch (error) {
       console.error(`[TribunalService] Error getting tribunal quote: ${error}`)
+      throw error
+    }
+  }
+
+  async verifyMandateHash(
+    mandate: {
+      recipient: string
+      expires: bigint
+      token: string
+      minimumAmount: bigint
+      baselinePriorityFee: bigint
+      scalingFactor: bigint
+      salt: string
+    },
+    chainId: number
+  ): Promise<{
+    onChainHash: `0x${string}`
+    localHash: `0x${string}`
+    match: boolean
+  }> {
+    try {
+      const client = this.getClientForChain(chainId)
+      const tribunalAddress = this.getTribunalAddress(chainId)
+
+      console.log('Contract call inputs:', {
+        recipient: mandate.recipient,
+        expires: mandate.expires.toString(),
+        token: mandate.token,
+        minimumAmount: mandate.minimumAmount.toString(),
+        baselinePriorityFee: mandate.baselinePriorityFee.toString(),
+        scalingFactor: mandate.scalingFactor.toString(),
+        salt: mandate.salt,
+      })
+
+      // Get on-chain hash
+      const { result: onChainHash } = (await client.simulateContract({
+        address: tribunalAddress,
+        abi: [
+          {
+            inputs: [
+              {
+                components: [
+                  { name: 'recipient', type: 'address' },
+                  { name: 'expires', type: 'uint256' },
+                  { name: 'token', type: 'address' },
+                  { name: 'minimumAmount', type: 'uint256' },
+                  { name: 'baselinePriorityFee', type: 'uint256' },
+                  { name: 'scalingFactor', type: 'uint256' },
+                  { name: 'salt', type: 'bytes32' },
+                ],
+                name: 'mandate',
+                type: 'tuple',
+              },
+            ],
+            name: 'deriveMandateHash',
+            outputs: [{ type: 'bytes32' }],
+            stateMutability: 'view',
+            type: 'function',
+          },
+        ],
+        functionName: 'deriveMandateHash',
+        args: [
+          {
+            recipient: mandate.recipient,
+            expires: mandate.expires,
+            token: mandate.token,
+            minimumAmount: mandate.minimumAmount,
+            baselinePriorityFee: mandate.baselinePriorityFee,
+            scalingFactor: mandate.scalingFactor,
+            salt: mandate.salt,
+          },
+        ],
+      })) as { result: `0x${string}` }
+
+      // Calculate local hash using QuoteConfigurationService
+      const localHash = this.quoteConfigService.deriveMandateHash(
+        chainId,
+        tribunalAddress,
+        mandate
+      )
+
+      // Compare hashes
+      const match = onChainHash === localHash
+
+      // Log the hashes for debugging
+      console.log('Hash comparison:', {
+        onChainHash,
+        localHash,
+        match,
+        inputs: {
+          recipient: mandate.recipient,
+          expires: mandate.expires.toString(),
+          token: mandate.token,
+          minimumAmount: mandate.minimumAmount.toString(),
+          baselinePriorityFee: mandate.baselinePriorityFee.toString(),
+          scalingFactor: mandate.scalingFactor.toString(),
+          salt: mandate.salt,
+        },
+      })
+
+      return {
+        onChainHash,
+        localHash,
+        match,
+      }
+    } catch (error) {
+      console.error('Error verifying mandate hash:', error)
       throw error
     }
   }
