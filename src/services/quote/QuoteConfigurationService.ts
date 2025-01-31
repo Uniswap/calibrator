@@ -1,4 +1,4 @@
-import { Address, encodeAbiParameters, keccak256, concat, toBytes } from 'viem'
+import { Address, encodeAbiParameters, keccak256, toBytes } from 'viem'
 import type {
   ArbiterMapping,
   CompactData,
@@ -130,7 +130,7 @@ export class QuoteConfigurationService {
       )
     }
 
-    const [variableDecl, typeDefinition] = nonEmptyParts
+    const [variableDecl, typeDefinitionWithoutClosing] = nonEmptyParts
     const [structName, variableName] = variableDecl.split(' ')
 
     if (!structName || !variableName) {
@@ -140,42 +140,58 @@ export class QuoteConfigurationService {
     }
 
     // Extract parameter string from the type definition
-    const matches = typeDefinition.match(/^(\w+)\((.*?)(?:\)|$)/)
+    const matches = typeDefinitionWithoutClosing.match(/^(\w+)\((.*?)(?:\)|$)/)
 
     if (!matches || matches[1] !== structName) {
       throw new Error(
         'Invalid witness type string format: struct name mismatch or invalid parameter list'
       )
     }
-    const paramString = matches[2]
 
-    // Parse parameters into types array
-    const params = paramString.split(',').map(param => {
-      const [type, name] = param.trim().split(' ')
-      if (!type || !name) {
-        throw new Error(
-          'Invalid witness type string format: invalid parameter declaration'
-        )
-      }
-      return { type, name }
-    })
+    // Parse parameters into types array for encoding
+    const params = typeDefinitionWithoutClosing
+      .split('(')[1]
+      .split(')')[0]
+      .split(',')
+      .map(param => {
+        const [type, name] = param.trim().split(' ')
+        if (!type || !name) {
+          throw new Error(
+            'Invalid witness type string format: invalid parameter declaration'
+          )
+        }
+        return { type, name }
+      })
+
+    const typeDefinition = typeDefinitionWithoutClosing + ')'
 
     // Generate typeHash using just the type definition
-    const typeHash = keccak256(
-      encodeAbiParameters(
-        [{ type: 'string' }],
-        [`${structName}(${params.map(p => p.type).join(',')})`]
-      )
-    )
+    const typeHash = keccak256(toBytes(typeDefinition))
 
-    // Encode the witness data according to the parsed parameters
-    const encodedData = encodeAbiParameters(
-      params.map(({ type }) => ({ type })),
-      params.map(({ name }) => witnessData[name])
-    )
+    // Create arrays for encoding
+    const types = [{ type: 'bytes32' }, ...params.map(({ type }) => ({ type }))]
+    const values = [
+      typeHash,
+      ...params.map(({ name }) => {
+        const value = witnessData[name]
+        if (value === undefined) {
+          throw new Error(`Missing value for parameter: ${name}`)
+        }
+        return value
+      }),
+    ]
 
-    // Concatenate and hash
-    return keccak256(concat([typeHash, encodedData]))
+    // Encode the witness data
+    const encodedData = encodeAbiParameters(types, values)
+
+    // Debug logging
+    console.log('generateWitnessHash encoded:', {
+      encodedData,
+      finalHash: keccak256(encodedData),
+    })
+
+    // Return the final hash
+    return keccak256(encodedData)
   }
 
   public deriveMandateHash(
@@ -198,6 +214,8 @@ export class QuoteConfigurationService {
 
     // Log the inputs for debugging
     console.log('Local hash calculation:', {
+      MANDATE_TYPE_STRING,
+      MANDATE_TYPEHASH,
       inputs: {
         chainId: BigInt(chainId),
         tribunal: tribunal.toLowerCase(),
@@ -209,7 +227,6 @@ export class QuoteConfigurationService {
         scalingFactor: mandate.scalingFactor.toString(),
         salt: mandate.salt,
       },
-      MANDATE_TYPEHASH,
     })
 
     // Now encode all the parameters with the typehash, matching the contract's abi.encode

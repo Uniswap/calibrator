@@ -308,4 +308,73 @@ describe('QuoteConfigurationService', () => {
       expect(result1.witnessHash).not.toBe(result2.witnessHash)
     })
   })
+
+  describe('mandate hash calculation', () => {
+    let hashService: QuoteConfigurationService
+
+    beforeEach(() => {
+      hashService = new QuoteConfigurationService({})
+    })
+
+    it('should produce same hash for mandate in generateWitnessHash and deriveMandateHash', () => {
+      // Test values for Optimism (chainId 10)
+      const mandate = {
+        recipient: '0x1234567890123456789012345678901234567890',
+        expires: BigInt('1735686000'), // Jan 1, 2025
+        token: '0x4200000000000000000000000000000000000006', // WETH on Optimism
+        minimumAmount: BigInt('1000000000000000000'), // 1 ETH
+        baselinePriorityFee: BigInt('1000000000'), // 1 gwei
+        scalingFactor: BigInt('1000000000000000000'), // 1.0
+        salt: '0x0000000000000000000000000000000000000000000000000000000000000001',
+      }
+
+      const chainId = 10
+      const tribunalAddress = '0xf4eA570740Ce552632F19c8E92691c6A5F6374D9' // Optimism Tribunal
+
+      // Use type assertion to access private method
+      const witnessHash = (hashService as any).generateWitnessHash(
+        'Mandate mandate)Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)',
+        {
+          chainId,
+          tribunal: tribunalAddress,
+          ...mandate,
+        }
+      )
+
+      const mandateHash = hashService.deriveMandateHash(
+        chainId,
+        tribunalAddress,
+        mandate
+      )
+
+      // They should match
+      expect(witnessHash).toBe(mandateHash)
+    })
+
+    it('should correctly calculate mandate hash', () => {
+      // Test values for Optimism (chainId 10)
+      const mandate = {
+        recipient: '0x1234567890123456789012345678901234567890',
+        expires: BigInt('1735686000'), // Jan 1, 2025
+        token: '0x4200000000000000000000000000000000000006', // WETH on Optimism
+        minimumAmount: BigInt('1000000000000000000'), // 1 ETH
+        baselinePriorityFee: BigInt('1000000000'), // 1 gwei
+        scalingFactor: BigInt('1000000000000000000'), // 1.0
+        salt: '0x0000000000000000000000000000000000000000000000000000000000000001',
+      }
+
+      const chainId = 10
+      const tribunalAddress = '0xf4eA570740Ce552632F19c8E92691c6A5F6374D9' // Optimism Tribunal
+
+      // Generate hash
+      const mandateHash = hashService.deriveMandateHash(
+        chainId,
+        tribunalAddress,
+        mandate
+      )
+
+      // Should match the expected format
+      expect(mandateHash).toMatch(/^0x[a-f0-9]{64}$/)
+    })
+  })
 })
