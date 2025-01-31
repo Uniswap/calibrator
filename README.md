@@ -2,6 +2,8 @@
 
 Cross-chain token swap parameter calculation service using The Compact protocol.
 
+A very light-weight hosted version of this service is available at https://calibrat0r.com/ — be aware that this is meant as a temporary utility for proof-of-concept usage and may not be reliable under any kind of load.
+
 ## Prerequisites
 
 - Node.js >= 18
