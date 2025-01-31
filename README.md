@@ -25,7 +25,10 @@ Edit the `.env` file and replace the placeholder values:
 
 - `COINGECKO_API_KEY`: Your CoinGecko API key
 - `UNISWAP_API_KEY`: Your Uniswap API key
-
+- `ETHEREUM_RPC_URL`: Your Ethereum RPC URL
+- `BASE_RPC_URL`: Your Base RPC URL
+- `OPTIMISM_RPC_URL`: Your Optimism RPC URL
+  
 3. Start development server:
 
 ```bash
@@ -43,7 +46,32 @@ This will start both the backend server on `http://localhost:3000` and the front
 ## Available Endpoints
 
 - `GET /health` - Service health check
-- More endpoints coming soon...
+- `POST /quote` — Pull a quote
+
+```bash
+$ curl -X POST http://localhost:3000/quote \
+  -H "Content-Type: application/json" \
+  -d '{
+    "sponsor": "0x1234567890123456789012345678901234567890",
+    "inputTokenChainId": 10,
+    "inputTokenAddress": "0x4200000000000000000000000000000000000006",
+    "inputTokenAmount": "1000000000000000000",
+    "outputTokenChainId": 8453,
+    "outputTokenAddress": "0x4200000000000000000000000000000000000006",
+    "lockParameters": {
+      "allocatorId": "0x12345678901234567890123",
+      "resetPeriod": 0,
+      "isMultichain": false
+    },
+    "context": {
+      "slippageBips": 100,
+      "recipient": "0x1234567890123456789012345678901234567890",
+      "baselinePriorityFee": "1000000000",
+      "scalingFactor": "1000000000100000000",
+      "expires": "1835986000"
+    }
+  }'
+```
 
 ## Development
 
