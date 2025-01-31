@@ -122,7 +122,9 @@ function QuoteForm() {
 
   const quoteMutation = useMutation<QuoteResponse, Error, QuoteRequest>(
     async data => {
-      const response = await fetch('/quote', {
+      const url =
+        process.env.NODE_ENV === 'test' ? 'http://test/quote' : '/quote'
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -646,11 +648,9 @@ function HealthCheck() {
     'health',
     async () => {
       // In test environment, use a mock URL that will be intercepted
-      const baseUrl =
-        process.env.NODE_ENV === 'test'
-          ? 'http://test'
-          : import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'
-      const response = await fetch(`${baseUrl}/health`)
+      const url =
+        process.env.NODE_ENV === 'test' ? 'http://test/health' : '/health'
+      const response = await fetch(url)
       if (!response.ok) {
         throw new Error('Health check failed')
       }
