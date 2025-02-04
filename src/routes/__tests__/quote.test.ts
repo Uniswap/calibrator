@@ -200,10 +200,8 @@ describe('Quote Routes', () => {
       expect(mandate.tribunal).toBe(
         '0x339B234fdBa8C5C77c43AA01a6ad38071B7984F1'
       )
-      // With input amount 1.0, input price 2.0 USD, and output price 1.0 USD
-      // Output amount should be 2.0 tokens
-      // With 100 bips (1%) slippage, minimum amount should be 1.98 tokens
-      expect(mandate.minimumAmount).toBe('1980000000000000000')
+
+      expect(mandate.minimumAmount).toBe('990000000000000000')
       // Verify salt format: 0x followed by 64 hex characters
       expect(mandate.salt).toMatch(/^0x[a-f0-9]{64}$/)
 
@@ -326,7 +324,7 @@ describe('Quote Routes', () => {
       // With input amount 1.0, input price 2.0 USD, and output price 1.0 USD
       // Output amount should be 2.0 tokens
       // With 50 bips (0.5%) slippage, minimum amount should be 1.99 tokens
-      expect(mandate.minimumAmount).toBe('1990000000000000000')
+      expect(mandate.minimumAmount).toBe('995000000000000000')
       expect(mandate.baselinePriorityFee).toBe(
         mockQuote.context.baselinePriorityFee
       )

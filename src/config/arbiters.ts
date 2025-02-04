@@ -22,9 +22,9 @@ const resolverTemplate = (
   minimumAmount:
     quote.outputAmountNet === null
       ? 0n
-      : (BigInt(quote.outputAmountNet) *
-          BigInt(10000 - (context.slippageBips || 100))) /
-        10000n,
+      : BigInt(quote.outputAmountNet) -
+        (BigInt(quote.outputAmountNet) * BigInt(context.slippageBips || 100)) /
+          10000n,
   baselinePriorityFee: context.baselinePriorityFee
     ? BigInt(context.baselinePriorityFee)
     : 0n,

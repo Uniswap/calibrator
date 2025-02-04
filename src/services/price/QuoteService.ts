@@ -191,6 +191,7 @@ export class QuoteService {
         }
       : undefined
 
+    // Prepare log
     const loggableRequest = {
       ...request,
       context: processedContext,
@@ -289,8 +290,8 @@ export class QuoteService {
       this.logger.error(`Error fetching spot prices: ${error}`)
     }
 
-    // Get initial Uniswap quote first
     try {
+      // Get initial Uniswap quote first
       // Get the first Uniswap quote (input token to ETH)
       const initialQuote = await this.uniswapProvider.getUniswapPrice(
         inputToken,
@@ -303,18 +304,43 @@ export class QuoteService {
         inputTokenAmount
       )
 
-      const ethQuoteAmount = initialQuote.outputAmountDirect || initialQuote.price
+      const ethQuoteAmount =
+        initialQuote.outputAmountDirect || initialQuote.price
       this.logger.info(`Initial ETH quote amount: ${ethQuoteAmount}`)
+
+      // Get direct quote using full ETH amount (before dispensation)
+      const directQuote = await this.uniswapProvider.getUniswapPrice(
+        {
+          address: '0x0000000000000000000000000000000000000000',
+          chainId: outputTokenChainId,
+          decimals: 18,
+          symbol: 'ETH',
+        },
+        outputToken,
+        ethQuoteAmount
+      )
+      quoteOutputAmountDirect =
+        directQuote.outputAmountDirect || directQuote.price
+      quoteOutputAmountNet = quoteOutputAmountDirect // Initially set to direct amount
+      this.logger.info(`Direct quote amount: ${quoteOutputAmountDirect}`)
+
+      // Calculate delta if we have both spot and quote prices
+      if (spotOutputAmount !== null) {
+        const delta = BigInt(quoteOutputAmountDirect) - BigInt(spotOutputAmount)
+        deltaAmount = delta.toString()
+      }
 
       // Try to get tribunal quote if needed
       this.logger.info('Starting tribunal quote calculation')
       this.logger.info(`Output token decimals: ${outputToken.decimals}`)
-      
+
       const tribunalService = new TribunalService()
       const expiresValue =
         context?.expires || Math.floor(Date.now() / 1000) + 3600
-      
-      this.logger.info(`Initial quote amount before tribunal: ${ethQuoteAmount}`)
+
+      this.logger.info(
+        `Initial quote amount before tribunal: ${ethQuoteAmount}`
+      )
 
       // Cast TribunalService to include test environment methods
       const tribunalServiceAny = tribunalService as TribunalService & {
@@ -378,11 +404,11 @@ export class QuoteService {
           minimumAmount:
             process.env.NODE_ENV === 'test'
               ? (
-                  (BigInt(ethQuoteAmount) *
+                  (BigInt(quoteOutputAmountDirect) *
                     BigInt(10000 - (context?.slippageBips || 100))) /
                   10000n
                 ).toString()
-              : (BigInt(ethQuoteAmount) *
+              : (BigInt(quoteOutputAmountDirect) *
                   BigInt(10000 - (context?.slippageBips || 100))) /
                 10000n,
           baselinePriorityFee:
@@ -399,7 +425,7 @@ export class QuoteService {
       )
 
       this.logger.info(`Initial dispensation result: ${initialDispensation}`)
-      
+
       // Subtract dispensation from ETH amount before second quote
       const netEthAmount = BigInt(ethQuoteAmount) - BigInt(initialDispensation)
       this.logger.info(`ETH amount after dispensation: ${netEthAmount}`)
@@ -439,10 +465,12 @@ export class QuoteService {
           minimumAmount:
             process.env.NODE_ENV === 'test'
               ? (
-                  (netEthAmount * BigInt(10000 - (context?.slippageBips || 100))) /
+                  (BigInt(quoteOutputAmountNet) *
+                    BigInt(10000 - (context?.slippageBips || 100))) /
                   10000n
                 ).toString()
-              : (netEthAmount * BigInt(10000 - (context?.slippageBips || 100))) /
+              : (BigInt(quoteOutputAmountNet) *
+                  BigInt(10000 - (context?.slippageBips || 100))) /
                 10000n,
           baselinePriorityFee:
             process.env.NODE_ENV === 'test'
@@ -462,7 +490,9 @@ export class QuoteService {
       this.logger.info(
         `Cross-chain message cost (dispensation): ${tribunalQuote}`
       )
-      this.logger.info(`tribunalQuote type: ${typeof tribunalQuote}, value: ${tribunalQuote}`)
+      this.logger.info(
+        `tribunalQuote type: ${typeof tribunalQuote}, value: ${tribunalQuote}`
+      )
 
       // Get ETH price to convert dispensation to USD
       const ethToken: Token = {
@@ -479,11 +509,15 @@ export class QuoteService {
 
         // ethPrice.price is already in wei (18 decimals)
         // Calculate USD value: (wei * price in wei) / 10^18
-        this.logger.info(`ETH price type: ${typeof ethPrice.price}, value: ${ethPrice.price}`)
+        this.logger.info(
+          `ETH price type: ${typeof ethPrice.price}, value: ${ethPrice.price}`
+        )
         const dispensationUsd =
           (BigInt(tribunalQuote) * BigInt(ethPrice.price)) / BigInt(10n ** 18n)
         tribunalQuoteUsd = dispensationUsd.toString()
-        this.logger.info(`tribunalQuoteUsd type: ${typeof tribunalQuoteUsd}, value: ${tribunalQuoteUsd}`)
+        this.logger.info(
+          `tribunalQuoteUsd type: ${typeof tribunalQuoteUsd}, value: ${tribunalQuoteUsd}`
+        )
 
         this.logger.info(
           `Cross-chain message cost in USD (raw): ${dispensationUsd}`
@@ -493,25 +527,8 @@ export class QuoteService {
         )
       }
 
-      // Store the tribunal quote values before attempting final quote
-      const finalTribunalQuote = tribunalQuote
-      const finalTribunalQuoteUsd = tribunalQuoteUsd
-
-      // Get direct quote using full ETH amount (before dispensation)
-      try {
-        const directQuote = await this.uniswapProvider.getUniswapPrice(
-          {
-            address: '0x0000000000000000000000000000000000000000',
-            chainId: outputTokenChainId,
-            decimals: 18,
-            symbol: 'ETH',
-          },
-          outputToken,
-          ethQuoteAmount
-        )
-        quoteOutputAmountDirect = directQuote.outputAmountDirect || directQuote.price
-        this.logger.info(`Direct quote amount (before dispensation): ${quoteOutputAmountDirect}`)
-
+      // Only proceed with tribunal quote for cross-chain transactions
+      if (inputTokenChainId !== outputTokenChainId) {
         // Get net quote using remaining ETH amount (after dispensation)
         const netQuote = await this.uniswapProvider.getUniswapPrice(
           {
@@ -525,31 +542,18 @@ export class QuoteService {
         )
         quoteOutputAmountNet = netQuote.outputAmountDirect || netQuote.price
 
-        // Calculate delta if we have both spot and quote prices
-        if (spotOutputAmount !== null && quoteOutputAmountNet !== null) {
+        // Recalculate delta with net amount for cross-chain
+        if (spotOutputAmount !== null) {
           const delta = BigInt(quoteOutputAmountNet) - BigInt(spotOutputAmount)
           deltaAmount = delta.toString()
         }
-
-        this.logger.info(
-          `Uniswap quote amount (direct): ${quoteOutputAmountDirect}`
-        )
-        this.logger.info(`Uniswap quote amount (net): ${quoteOutputAmountNet}`)
-        this.logger.info(`Calculated delta: ${deltaAmount}`)
-      } catch (error) {
-        // If getting the final quote fails and we have a tribunal quote,
-        // we still want to return the tribunal quote
-        this.logger.error(
-          `Error getting final quote with dispensation: ${error}`
-        )
-        if (tribunalQuote) {
-          quoteOutputAmountDirect = null
-          quoteOutputAmountNet = null
-          deltaAmount = null
-          tribunalQuote = finalTribunalQuote
-          tribunalQuoteUsd = finalTribunalQuoteUsd
-        }
       }
+
+      this.logger.info(
+        `Uniswap quote amount (direct): ${quoteOutputAmountDirect}`
+      )
+      this.logger.info(`Uniswap quote amount (net): ${quoteOutputAmountNet}`)
+      this.logger.info(`Calculated delta: ${deltaAmount}`)
     } catch (error) {
       this.logger.error(`Error getting quote with dispensation: ${error}`)
     }

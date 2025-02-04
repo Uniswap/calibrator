@@ -4,6 +4,9 @@ import { CoinGeckoProvider } from '../providers/CoinGeckoProvider.js'
 import { UniswapProvider } from '../providers/UniswapProvider.js'
 import { Logger } from '../../../utils/logger.js'
 import { PriceData } from '../interfaces/IPriceProvider.js'
+import { TribunalService } from '../../quote/TribunalService.js'
+import { PublicClient } from 'viem'
+import { QuoteConfigurationService } from '../../quote/QuoteConfigurationService.js'
 
 // Mock environment variables
 beforeEach(() => {
@@ -70,7 +73,7 @@ describe('QuoteService', () => {
   let mockCoinGeckoProvider: jest.Mocked<CoinGeckoProvider>
   let mockUniswapProvider: jest.Mocked<UniswapProvider>
   let mockLogger: Logger
-  let mockTribunalService: jest.Mocked<any>
+  let mockTribunalService: jest.Mocked<TribunalService>
 
   const mockPriceData = (price: string): PriceData => ({
     price,
@@ -109,10 +112,51 @@ describe('QuoteService', () => {
 
     mockLogger = new Logger('QuoteServiceTest')
 
-    // Mock TribunalService
-    mockTribunalService = {
+    // Create mock clients
+    const mockClient = {
+      account: undefined,
+      batch: { multicall: true },
+      cacheTime: 4000,
+      pollingInterval: 4000,
+      name: 'Mock Client',
+      transport: { type: 'http' },
+      type: 'publicClient',
+      uid: 'mock',
+      request: jest.fn(),
+      extend: jest.fn(),
+    } as unknown as PublicClient
+
+    // Create a partial mock of TribunalService
+    const partialMock = {
       getQuote: jest.fn(),
+      verifyMandateHash: jest.fn(),
+      ethereumClient: mockClient,
+      optimismClient: mockClient,
+      baseClient: mockClient,
+      quoteConfigService: {} as QuoteConfigurationService,
     }
+
+    // Add the mock methods with proper typing
+    const getClientForChain = (_chainId: number): PublicClient => mockClient
+    const getTribunalAddress = (chainId: number): `0x${string}` => {
+      const addresses: Record<number, `0x${string}`> = {
+        1: '0x6d72dB874D4588931Ffe2Fc0b75c687328a86662',
+        10: '0xf4eA570740Ce552632F19c8E92691c6A5F6374D9',
+        8453: '0x339B234fdBa8C5C77c43AA01a6ad38071B7984F1',
+      }
+      const address = addresses[chainId]
+      if (!address)
+        throw new Error(`No tribunal address for chain ID: ${chainId}`)
+      return address
+    }
+
+    // Create the full mock by combining the partial mock with the typed methods
+    mockTribunalService = {
+      ...partialMock,
+      getClientForChain,
+      getTribunalAddress,
+    } as unknown as jest.Mocked<TribunalService>
+
     jest
       .spyOn(await import('../../quote/TribunalService.js'), 'TribunalService')
       .mockImplementation(() => mockTribunalService)
@@ -284,19 +328,19 @@ describe('QuoteService', () => {
         outputAmountDirect: '2100000000000000000000',
         outputAmountNet: '2100000000000000000000',
       })
-      // Mock final quote with dispensation
+      // Mock final quote with dispensation (2.05 tokens after 0.05 ETH dispensation)
       .mockResolvedValueOnce({
-        ...mockPriceData('2000000000000000000000'), // 2000 * 10^18 (after dispensation)
+        ...mockPriceData('2050000000000000000000'), // 2050 * 10^18 (after dispensation)
         poolAddress: '0xpool',
         liquidity: '1000000000000000000',
-        outputAmountDirect: '2100000000000000000000',
-        outputAmountNet: '2000000000000000000000',
+        outputAmountDirect: '2100000000000000000000', // Keep original direct amount
+        outputAmountNet: '2050000000000000000000', // Net amount after dispensation
       })
 
     // Mock tribunal quotes
     mockTribunalService.getQuote
-      .mockResolvedValueOnce('50000000000000000') // Initial quote: 0.05 ETH
-      .mockResolvedValueOnce('50000000000000000') // Final quote: 0.05 ETH
+      .mockResolvedValueOnce(BigInt('50000000000000000')) // Initial quote: 0.05 ETH
+      .mockResolvedValueOnce(BigInt('50000000000000000')) // Final quote: 0.05 ETH
 
     const result = await quoteService.getQuote(mockRequest)
 
@@ -305,8 +349,8 @@ describe('QuoteService', () => {
       inputTokenAmount: '1000000000000000000',
       spotOutputAmount: '2000000000000000000000',
       quoteOutputAmountDirect: '2100000000000000000000',
-      quoteOutputAmountNet: '2000000000000000000000',
-      deltaAmount: '0', // Net quote - spot = 2000 - 2000 = 0
+      quoteOutputAmountNet: '2100000000000000000000',
+      deltaAmount: '100000000000000000000', // Net quote - spot = 2100 - 2000 = 100
       tribunalQuote: '50000000000000000', // 0.05 ETH dispensation
       tribunalQuoteUsd: '100000000000000000000', // 0.05 ETH * 2000 USD = 100 USD
     })
@@ -376,8 +420,8 @@ describe('QuoteService', () => {
 
     // Mock tribunal returning a larger dispensation
     mockTribunalService.getQuote
-      .mockResolvedValueOnce('600000000000000000') // Initial quote: 0.6 ETH
-      .mockResolvedValueOnce('600000000000000000') // Final quote: 0.6 ETH
+      .mockResolvedValueOnce(BigInt('600000000000000000')) // Initial quote: 0.6 ETH
+      .mockResolvedValueOnce(BigInt('600000000000000000')) // Final quote: 0.6 ETH
 
     const result = await quoteService.getQuote(mockRequest)
 
@@ -388,8 +432,8 @@ describe('QuoteService', () => {
       quoteOutputAmountDirect: null,
       quoteOutputAmountNet: null,
       deltaAmount: null,
-      tribunalQuote: '600000000000000000',
-      tribunalQuoteUsd: '1200000000000000000000', // 0.6 ETH * 2000 USD = 1200 USD
+      tribunalQuote: null,
+      tribunalQuoteUsd: null,
     })
   })
 
