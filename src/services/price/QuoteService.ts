@@ -325,7 +325,7 @@ export class QuoteService {
       this.logger.info(`Direct quote amount: ${quoteOutputAmountDirect}`)
 
       // Calculate delta if we have both spot and quote prices
-      if (spotOutputAmount !== null) {
+      if (spotOutputAmount !== null && quoteOutputAmountDirect !== null) {
         const delta = BigInt(quoteOutputAmountDirect) - BigInt(spotOutputAmount)
         deltaAmount = delta.toString()
       }
@@ -404,11 +404,11 @@ export class QuoteService {
           minimumAmount:
             process.env.NODE_ENV === 'test'
               ? (
-                  (BigInt(quoteOutputAmountDirect) *
+                  (BigInt(quoteOutputAmountDirect || '0') *
                     BigInt(10000 - (context?.slippageBips || 100))) /
                   10000n
                 ).toString()
-              : (BigInt(quoteOutputAmountDirect) *
+              : (BigInt(quoteOutputAmountDirect || '0') *
                   BigInt(10000 - (context?.slippageBips || 100))) /
                 10000n,
           baselinePriorityFee:
@@ -426,124 +426,161 @@ export class QuoteService {
 
       this.logger.info(`Initial dispensation result: ${initialDispensation}`)
 
-      // Subtract dispensation from ETH amount before second quote
-      const netEthAmount = BigInt(ethQuoteAmount) - BigInt(initialDispensation)
-      this.logger.info(`ETH amount after dispensation: ${netEthAmount}`)
-      const dispensation = await tribunalServiceAny.getQuote(
-        arbiterMapping[`${inputTokenChainId}-${outputTokenChainId}`]?.address ||
-          '0x0000000000000000000000000000000000000000',
-        context?.recipient ||
-          sponsor ||
-          '0x0000000000000000000000000000000000000000',
-        process.env.NODE_ENV === 'test' ? '0' : 0n,
-        process.env.NODE_ENV === 'test'
-          ? expiresValue.toString()
-          : BigInt(expiresValue),
-        process.env.NODE_ENV === 'test'
-          ? (lockParameters?.allocatorId || '0').toString()
-          : BigInt(lockParameters?.allocatorId || '0'),
-        process.env.NODE_ENV === 'test'
-          ? netEthAmount.toString()
-          : netEthAmount,
-        inputTokenChainId,
-        context?.recipient ||
-          sponsor ||
-          '0x0000000000000000000000000000000000000000',
-        process.env.NODE_ENV === 'test'
-          ? netEthAmount.toString()
-          : netEthAmount,
-        {
-          recipient:
-            context?.recipient ||
+      // For cross-chain transactions, handle net quote based on dispensation
+      if (inputTokenChainId !== outputTokenChainId) {
+        // Check if dispensation exceeds available amount
+        const isDispensationExcessive =
+          BigInt(initialDispensation) > BigInt(ethQuoteAmount)
+
+        // Calculate net ETH amount, ensuring it doesn't go negative
+        const netEthAmount = isDispensationExcessive
+          ? 0n
+          : BigInt(ethQuoteAmount) - BigInt(initialDispensation)
+        this.logger.info(`ETH amount after dispensation: ${netEthAmount}`)
+
+        // Set net quote to zero if dispensation exceeds available amount
+        if (isDispensationExcessive) {
+          quoteOutputAmountNet = '0'
+          this.logger.info(
+            'Net quote amount set to zero due to insufficient funds after dispensation'
+          )
+        }
+
+        // Keep original dispensation amount even if it exceeds available amount
+        const dispensation = await tribunalServiceAny.getQuote(
+          arbiterMapping[`${inputTokenChainId}-${outputTokenChainId}`]
+            ?.address || '0x0000000000000000000000000000000000000000',
+          context?.recipient ||
             sponsor ||
             '0x0000000000000000000000000000000000000000',
-          expires:
-            process.env.NODE_ENV === 'test'
-              ? expiresValue.toString()
-              : BigInt(expiresValue),
-          token: outputTokenAddress as `0x${string}`,
-          minimumAmount:
-            process.env.NODE_ENV === 'test'
-              ? (
-                  (BigInt(quoteOutputAmountNet) *
-                    BigInt(10000 - (context?.slippageBips || 100))) /
-                  10000n
-                ).toString()
-              : (BigInt(quoteOutputAmountNet) *
-                  BigInt(10000 - (context?.slippageBips || 100))) /
-                10000n,
-          baselinePriorityFee:
-            process.env.NODE_ENV === 'test'
-              ? context?.baselinePriorityFee || '0'
-              : BigInt(context?.baselinePriorityFee || '0'),
-          scalingFactor:
-            process.env.NODE_ENV === 'test'
-              ? context?.scalingFactor || '1000000000100000000'
-              : BigInt(context?.scalingFactor || '1000000000100000000'),
-          salt: `0x${crypto.randomBytes(32).toString('hex')}`,
-        },
-        outputTokenChainId
-      )
-
-      this.logger.info(`Final dispensation result: ${dispensation}`)
-      tribunalQuote = dispensation.toString()
-      this.logger.info(
-        `Cross-chain message cost (dispensation): ${tribunalQuote}`
-      )
-      this.logger.info(
-        `tribunalQuote type: ${typeof tribunalQuote}, value: ${tribunalQuote}`
-      )
-
-      // Get ETH price to convert dispensation to USD
-      const ethToken: Token = {
-        address: '0x0000000000000000000000000000000000000000',
-        chainId: 1, // Ethereum mainnet
-        decimals: 18,
-        symbol: 'ETH',
-      }
-      const ethPrice = await this.coinGeckoProvider.getUsdPrice(ethToken)
-
-      if (ethPrice) {
-        this.logger.info(`ETH price from CoinGecko: ${ethPrice.price}`)
-        this.logger.info(`Dispensation in wei: ${tribunalQuote}`)
-
-        // ethPrice.price is already in wei (18 decimals)
-        // Calculate USD value: (wei * price in wei) / 10^18
-        this.logger.info(
-          `ETH price type: ${typeof ethPrice.price}, value: ${ethPrice.price}`
-        )
-        const dispensationUsd =
-          (BigInt(tribunalQuote) * BigInt(ethPrice.price)) / BigInt(10n ** 18n)
-        tribunalQuoteUsd = dispensationUsd.toString()
-        this.logger.info(
-          `tribunalQuoteUsd type: ${typeof tribunalQuoteUsd}, value: ${tribunalQuoteUsd}`
-        )
-
-        this.logger.info(
-          `Cross-chain message cost in USD (raw): ${dispensationUsd}`
-        )
-        this.logger.info(
-          `Cross-chain message cost in USD (formatted): ${Number(dispensationUsd) / 1e18}`
-        )
-      }
-
-      // Only proceed with tribunal quote for cross-chain transactions
-      if (inputTokenChainId !== outputTokenChainId) {
-        // Get net quote using remaining ETH amount (after dispensation)
-        const netQuote = await this.uniswapProvider.getUniswapPrice(
+          process.env.NODE_ENV === 'test' ? '0' : 0n,
+          process.env.NODE_ENV === 'test'
+            ? expiresValue.toString()
+            : BigInt(expiresValue),
+          process.env.NODE_ENV === 'test'
+            ? (lockParameters?.allocatorId || '0').toString()
+            : BigInt(lockParameters?.allocatorId || '0'),
+          process.env.NODE_ENV === 'test'
+            ? netEthAmount.toString()
+            : netEthAmount,
+          inputTokenChainId,
+          context?.recipient ||
+            sponsor ||
+            '0x0000000000000000000000000000000000000000',
+          process.env.NODE_ENV === 'test'
+            ? netEthAmount.toString()
+            : netEthAmount,
           {
-            address: '0x0000000000000000000000000000000000000000',
-            chainId: outputTokenChainId,
-            decimals: 18,
-            symbol: 'ETH',
+            recipient:
+              context?.recipient ||
+              sponsor ||
+              '0x0000000000000000000000000000000000000000',
+            expires:
+              process.env.NODE_ENV === 'test'
+                ? expiresValue.toString()
+                : BigInt(expiresValue),
+            token: outputTokenAddress as `0x${string}`,
+            minimumAmount:
+              process.env.NODE_ENV === 'test'
+                ? (
+                    (BigInt(quoteOutputAmountNet || '0') *
+                      BigInt(10000 - (context?.slippageBips || 100))) /
+                    10000n
+                  ).toString()
+                : (BigInt(quoteOutputAmountNet || '0') *
+                    BigInt(10000 - (context?.slippageBips || 100))) /
+                  10000n,
+            baselinePriorityFee:
+              process.env.NODE_ENV === 'test'
+                ? context?.baselinePriorityFee || '0'
+                : BigInt(context?.baselinePriorityFee || '0'),
+            scalingFactor:
+              process.env.NODE_ENV === 'test'
+                ? context?.scalingFactor || '1000000000100000000'
+                : BigInt(context?.scalingFactor || '1000000000100000000'),
+            salt: `0x${crypto.randomBytes(32).toString('hex')}`,
           },
-          outputToken,
-          netEthAmount.toString()
+          outputTokenChainId
         )
-        quoteOutputAmountNet = netQuote.outputAmountDirect || netQuote.price
+
+        this.logger.info(`Final dispensation result: ${dispensation}`)
+        tribunalQuote = dispensation.toString()
+        this.logger.info(
+          `Cross-chain message cost (dispensation): ${tribunalQuote}`
+        )
+        this.logger.info(
+          `tribunalQuote type: ${typeof tribunalQuote}, value: ${tribunalQuote}`
+        )
+
+        // Get ETH price to convert dispensation to USD
+        const ethToken: Token = {
+          address: '0x0000000000000000000000000000000000000000',
+          chainId: 1, // Ethereum mainnet
+          decimals: 18,
+          symbol: 'ETH',
+        }
+        const ethPrice = await this.coinGeckoProvider.getUsdPrice(ethToken)
+
+        if (ethPrice) {
+          this.logger.info(`ETH price from CoinGecko: ${ethPrice.price}`)
+          this.logger.info(`Dispensation in wei: ${tribunalQuote}`)
+
+          // ethPrice.price is already in wei (18 decimals)
+          // Calculate USD value: (wei * price in wei) / 10^18
+          this.logger.info(
+            `ETH price type: ${typeof ethPrice.price}, value: ${ethPrice.price}`
+          )
+          const dispensationUsd =
+            (BigInt(tribunalQuote || '0') * BigInt(ethPrice.price)) /
+            BigInt(10n ** 18n)
+          tribunalQuoteUsd = dispensationUsd.toString()
+          this.logger.info(
+            `tribunalQuoteUsd type: ${typeof tribunalQuoteUsd}, value: ${tribunalQuoteUsd}`
+          )
+
+          this.logger.info(
+            `Cross-chain message cost in USD (raw): ${dispensationUsd}`
+          )
+          this.logger.info(
+            `Cross-chain message cost in USD (formatted): ${Number(dispensationUsd) / 1e18}`
+          )
+        }
+
+        // Only get net quote if we have remaining ETH after dispensation
+        if (!isDispensationExcessive) {
+          const netQuote = await this.uniswapProvider.getUniswapPrice(
+            {
+              address: '0x0000000000000000000000000000000000000000',
+              chainId: outputTokenChainId,
+              decimals: 18,
+              symbol: 'ETH',
+            },
+            outputToken,
+            netEthAmount.toString()
+          )
+          quoteOutputAmountNet = netQuote.outputAmountDirect || netQuote.price
+
+          // Only recalculate delta if we have a valid net quote
+          if (spotOutputAmount !== null && quoteOutputAmountNet !== null) {
+            const delta =
+              BigInt(quoteOutputAmountNet) - BigInt(spotOutputAmount)
+            deltaAmount = delta.toString()
+          }
+        } else {
+          // When dispensation exceeds available amount, calculate delta using net amount of 0
+          if (spotOutputAmount !== null) {
+            deltaAmount = (-BigInt(spotOutputAmount)).toString()
+          }
+        }
 
         // Recalculate delta with net amount for cross-chain
-        if (spotOutputAmount !== null) {
+        if (spotOutputAmount !== null && quoteOutputAmountNet !== null) {
+          const delta = BigInt(quoteOutputAmountNet) - BigInt(spotOutputAmount)
+          deltaAmount = delta.toString()
+        }
+
+        // Recalculate delta with net amount for cross-chain
+        if (spotOutputAmount !== null && quoteOutputAmountNet !== null) {
           const delta = BigInt(quoteOutputAmountNet) - BigInt(spotOutputAmount)
           deltaAmount = delta.toString()
         }
