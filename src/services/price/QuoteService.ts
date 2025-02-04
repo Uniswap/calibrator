@@ -291,30 +291,30 @@ export class QuoteService {
 
     // Get initial Uniswap quote first
     try {
+      // Get the first Uniswap quote (input token to ETH)
       const initialQuote = await this.uniswapProvider.getUniswapPrice(
         inputToken,
-        outputToken,
+        {
+          address: '0x0000000000000000000000000000000000000000',
+          chainId: inputTokenChainId,
+          decimals: 18,
+          symbol: 'ETH',
+        },
         inputTokenAmount
       )
 
-      const initialQuoteAmount =
-        initialQuote.outputAmountDirect || initialQuote.price
-      quoteOutputAmountDirect = initialQuoteAmount
-      quoteOutputAmountNet = initialQuoteAmount
-
-      // Calculate initial delta if we have both spot and quote prices
-      if (spotOutputAmount !== null && initialQuoteAmount !== null) {
-        const delta = BigInt(initialQuoteAmount) - BigInt(spotOutputAmount)
-        deltaAmount = delta.toString()
-      }
-
-      this.logger.info(`Initial Uniswap quote amount: ${initialQuoteAmount}`)
-      this.logger.info(`Initial calculated delta: ${deltaAmount}`)
+      const ethQuoteAmount = initialQuote.outputAmountDirect || initialQuote.price
+      this.logger.info(`Initial ETH quote amount: ${ethQuoteAmount}`)
 
       // Try to get tribunal quote if needed
+      this.logger.info('Starting tribunal quote calculation')
+      this.logger.info(`Output token decimals: ${outputToken.decimals}`)
+      
       const tribunalService = new TribunalService()
       const expiresValue =
         context?.expires || Math.floor(Date.now() / 1000) + 3600
+      
+      this.logger.info(`Initial quote amount before tribunal: ${ethQuoteAmount}`)
 
       // Cast TribunalService to include test environment methods
       const tribunalServiceAny = tribunalService as TribunalService & {
@@ -356,15 +356,15 @@ export class QuoteService {
           ? (lockParameters?.allocatorId || '0').toString()
           : BigInt(lockParameters?.allocatorId || '0'),
         process.env.NODE_ENV === 'test'
-          ? initialQuoteAmount
-          : BigInt(initialQuoteAmount),
+          ? ethQuoteAmount
+          : BigInt(ethQuoteAmount),
         inputTokenChainId,
         context?.recipient ||
           sponsor ||
           '0x0000000000000000000000000000000000000000',
         process.env.NODE_ENV === 'test'
-          ? initialQuoteAmount
-          : BigInt(initialQuoteAmount),
+          ? ethQuoteAmount
+          : BigInt(ethQuoteAmount),
         {
           recipient:
             context?.recipient ||
@@ -378,11 +378,11 @@ export class QuoteService {
           minimumAmount:
             process.env.NODE_ENV === 'test'
               ? (
-                  (BigInt(initialQuoteAmount) *
+                  (BigInt(ethQuoteAmount) *
                     BigInt(10000 - (context?.slippageBips || 100))) /
                   10000n
                 ).toString()
-              : (BigInt(initialQuoteAmount) *
+              : (BigInt(ethQuoteAmount) *
                   BigInt(10000 - (context?.slippageBips || 100))) /
                 10000n,
           baselinePriorityFee:
@@ -398,8 +398,11 @@ export class QuoteService {
         outputTokenChainId
       )
 
-      // Now get the final tribunal quote using the net amount
-      const netAmount = BigInt(initialQuoteAmount) - BigInt(initialDispensation)
+      this.logger.info(`Initial dispensation result: ${initialDispensation}`)
+      
+      // Subtract dispensation from ETH amount before second quote
+      const netEthAmount = BigInt(ethQuoteAmount) - BigInt(initialDispensation)
+      this.logger.info(`ETH amount after dispensation: ${netEthAmount}`)
       const dispensation = await tribunalServiceAny.getQuote(
         arbiterMapping[`${inputTokenChainId}-${outputTokenChainId}`]?.address ||
           '0x0000000000000000000000000000000000000000',
@@ -414,15 +417,15 @@ export class QuoteService {
           ? (lockParameters?.allocatorId || '0').toString()
           : BigInt(lockParameters?.allocatorId || '0'),
         process.env.NODE_ENV === 'test'
-          ? netAmount.toString()
-          : BigInt(netAmount),
+          ? netEthAmount.toString()
+          : netEthAmount,
         inputTokenChainId,
         context?.recipient ||
           sponsor ||
           '0x0000000000000000000000000000000000000000',
         process.env.NODE_ENV === 'test'
-          ? netAmount.toString()
-          : BigInt(netAmount),
+          ? netEthAmount.toString()
+          : netEthAmount,
         {
           recipient:
             context?.recipient ||
@@ -436,10 +439,10 @@ export class QuoteService {
           minimumAmount:
             process.env.NODE_ENV === 'test'
               ? (
-                  (netAmount * BigInt(10000 - (context?.slippageBips || 100))) /
+                  (netEthAmount * BigInt(10000 - (context?.slippageBips || 100))) /
                   10000n
                 ).toString()
-              : (netAmount * BigInt(10000 - (context?.slippageBips || 100))) /
+              : (netEthAmount * BigInt(10000 - (context?.slippageBips || 100))) /
                 10000n,
           baselinePriorityFee:
             process.env.NODE_ENV === 'test'
@@ -454,10 +457,12 @@ export class QuoteService {
         outputTokenChainId
       )
 
+      this.logger.info(`Final dispensation result: ${dispensation}`)
       tribunalQuote = dispensation.toString()
       this.logger.info(
         `Cross-chain message cost (dispensation): ${tribunalQuote}`
       )
+      this.logger.info(`tribunalQuote type: ${typeof tribunalQuote}, value: ${tribunalQuote}`)
 
       // Get ETH price to convert dispensation to USD
       const ethToken: Token = {
@@ -474,9 +479,11 @@ export class QuoteService {
 
         // ethPrice.price is already in wei (18 decimals)
         // Calculate USD value: (wei * price in wei) / 10^18
+        this.logger.info(`ETH price type: ${typeof ethPrice.price}, value: ${ethPrice.price}`)
         const dispensationUsd =
           (BigInt(tribunalQuote) * BigInt(ethPrice.price)) / BigInt(10n ** 18n)
         tribunalQuoteUsd = dispensationUsd.toString()
+        this.logger.info(`tribunalQuoteUsd type: ${typeof tribunalQuoteUsd}, value: ${tribunalQuoteUsd}`)
 
         this.logger.info(
           `Cross-chain message cost in USD (raw): ${dispensationUsd}`
@@ -490,17 +497,33 @@ export class QuoteService {
       const finalTribunalQuote = tribunalQuote
       const finalTribunalQuoteUsd = tribunalQuoteUsd
 
-      // Now get final quote with dispensation if we have one
+      // Get direct quote using full ETH amount (before dispensation)
       try {
-        const quote = await this.uniswapProvider.getUniswapPrice(
-          inputToken,
+        const directQuote = await this.uniswapProvider.getUniswapPrice(
+          {
+            address: '0x0000000000000000000000000000000000000000',
+            chainId: outputTokenChainId,
+            decimals: 18,
+            symbol: 'ETH',
+          },
           outputToken,
-          inputTokenAmount,
-          tribunalQuote || undefined
+          ethQuoteAmount
         )
+        quoteOutputAmountDirect = directQuote.outputAmountDirect || directQuote.price
+        this.logger.info(`Direct quote amount (before dispensation): ${quoteOutputAmountDirect}`)
 
-        quoteOutputAmountDirect = quote.outputAmountDirect || quote.price
-        quoteOutputAmountNet = quote.outputAmountNet || quote.price
+        // Get net quote using remaining ETH amount (after dispensation)
+        const netQuote = await this.uniswapProvider.getUniswapPrice(
+          {
+            address: '0x0000000000000000000000000000000000000000',
+            chainId: outputTokenChainId,
+            decimals: 18,
+            symbol: 'ETH',
+          },
+          outputToken,
+          netEthAmount.toString()
+        )
+        quoteOutputAmountNet = netQuote.outputAmountDirect || netQuote.price
 
         // Calculate delta if we have both spot and quote prices
         if (spotOutputAmount !== null && quoteOutputAmountNet !== null) {
