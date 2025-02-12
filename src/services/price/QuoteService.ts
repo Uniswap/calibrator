@@ -342,31 +342,6 @@ export class QuoteService {
         `Initial quote amount before tribunal: ${ethQuoteAmount}`
       )
 
-      // Cast TribunalService to include test environment methods
-      const tribunalServiceAny = tribunalService as TribunalService & {
-        getQuote(
-          arbiter: string,
-          sponsor: string,
-          nonce: string | bigint,
-          expires: string | bigint,
-          id: string | bigint,
-          maximumAmount: string | bigint,
-          chainId: number,
-          claimant: string,
-          claimAmount: string | bigint,
-          mandate: {
-            recipient: string
-            expires: string | bigint
-            token: string
-            minimumAmount: string | bigint
-            baselinePriorityFee: string | bigint
-            scalingFactor: string | bigint
-            salt: string
-          },
-          targetChainId: number
-        ): Promise<bigint>
-      }
-
       // Get initial tribunal quote using initial quote amount
       const initialDispensation = await tribunalService.getQuote(
         inputTokenChainId,
@@ -384,15 +359,18 @@ export class QuoteService {
             context?.recipient ||
             sponsor ||
             '0x0000000000000000000000000000000000000000',
-          expires: process.env.NODE_ENV === 'test' 
-            ? expiresValue.toString() 
-            : BigInt(expiresValue),
+          expires: BigInt(expiresValue),
           token: outputTokenAddress as `0x${string}`,
-          minimumAmount: BigInt(quoteOutputAmountDirect || '0') *
-            BigInt(10000 - (context?.slippageBips || 100)) /
+          minimumAmount:
+            (BigInt(quoteOutputAmountDirect || '0') *
+              BigInt(10000 - (context?.slippageBips || 100))) /
             10000n,
-          baselinePriorityFee: BigInt(context?.baselinePriorityFee?.toString() || '0'),
-          scalingFactor: BigInt(context?.scalingFactor?.toString() || '1000000000100000000'),
+          baselinePriorityFee: BigInt(
+            context?.baselinePriorityFee?.toString() || '0'
+          ),
+          scalingFactor: BigInt(
+            context?.scalingFactor?.toString() || '1000000000100000000'
+          ),
           salt: `0x${crypto.randomBytes(32).toString('hex')}`,
         },
         context?.recipient ||
@@ -442,11 +420,16 @@ export class QuoteService {
               '0x0000000000000000000000000000000000000000',
             expires: BigInt(expiresValue),
             token: outputTokenAddress as `0x${string}`,
-            minimumAmount: BigInt(quoteOutputAmountNet || '0') *
-            BigInt(10000 - (context?.slippageBips || 100)) /
-            10000n,
-            baselinePriorityFee: BigInt(context?.baselinePriorityFee?.toString() || '0'),
-            scalingFactor: BigInt(context?.scalingFactor?.toString() || '1000000000100000000'),
+            minimumAmount:
+              (BigInt(quoteOutputAmountNet || '0') *
+                BigInt(10000 - (context?.slippageBips || 100))) /
+              10000n,
+            baselinePriorityFee: BigInt(
+              context?.baselinePriorityFee?.toString() || '0'
+            ),
+            scalingFactor: BigInt(
+              context?.scalingFactor?.toString() || '1000000000100000000'
+            ),
             salt: `0x${crypto.randomBytes(32).toString('hex')}`,
           },
           context?.recipient ||

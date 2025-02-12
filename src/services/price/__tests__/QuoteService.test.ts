@@ -367,16 +367,23 @@ describe('QuoteService', () => {
     }
 
     expect(mockTribunalService.getQuote).toHaveBeenCalledWith(
-      expect.any(String), // arbiter
-      mockRequest.context.recipient,
-      '0', // nonce
-      expectedContext.expires,
-      mockRequest.lockParameters.allocatorId,
-      '2100000000000000000000', // using quote output amount
       mockRequest.inputTokenChainId,
+      expect.any(String), // arbiter address
+      mockRequest.sponsor,
+      0n, // nonce
+      BigInt(expectedContext.expires),
+      BigInt(mockRequest.lockParameters.allocatorId),
+      expect.any(BigInt), // quote amount
+      expect.any(String), // signature 1
+      expect.any(String), // signature 2
+      {
+        ...expectedContext,
+        expires: BigInt(expectedContext.expires),
+        minimumAmount: BigInt(expectedContext.minimumAmount),
+        baselinePriorityFee: BigInt(expectedContext.baselinePriorityFee),
+        scalingFactor: BigInt(expectedContext.scalingFactor),
+      },
       mockRequest.context.recipient,
-      '2100000000000000000000', // claim amount
-      expectedContext,
       mockRequest.outputTokenChainId
     )
   })
