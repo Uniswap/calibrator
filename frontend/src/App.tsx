@@ -35,7 +35,6 @@ interface QuoteRequest {
   outputTokenChainId: number
   outputTokenAddress: string
   sponsor: string
-  duration?: number
   lockParameters?: LockParameters
   context?: QuoteContext
 }
@@ -80,7 +79,6 @@ interface QuoteResponse {
   outputTokenChainId: number
   outputTokenAddress: string
   sponsor?: string
-  duration?: number
   lockParameters?: LockParameters
 }
 
@@ -110,7 +108,6 @@ function QuoteForm() {
     outputTokenChainId: 0,
     outputTokenAddress: '',
     sponsor: '0x0000000000000000000000000000000000000000',
-    duration: 3600,
     lockParameters: {
       allocatorId: '0',
       resetPeriod: 0,
@@ -273,22 +270,6 @@ function QuoteForm() {
               value={formData.sponsor}
               onChange={e =>
                 setFormData({ ...formData, sponsor: e.target.value })
-              }
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Duration (seconds)
-            </label>
-            <input
-              type="number"
-              value={formData.duration}
-              onChange={e =>
-                setFormData({
-                  ...formData,
-                  duration: parseInt(e.target.value) || 3600,
-                })
               }
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
             />
