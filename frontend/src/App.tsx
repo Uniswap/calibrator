@@ -24,7 +24,8 @@ interface QuoteContext {
   recipient?: string
   baselinePriorityFee?: string
   scalingFactor?: string
-  expires?: string
+  fillExpires?: string
+  claimExpires?: string
 }
 
 interface QuoteRequest {
@@ -117,6 +118,8 @@ function QuoteForm() {
     },
     context: {
       slippageBips: 30,
+      fillExpires: '180',
+      claimExpires: '540',
     },
   })
 
@@ -142,7 +145,26 @@ function QuoteForm() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    quoteMutation.mutate(formData)
+
+    // Calculate expiry timestamps based on durations
+    const nowInSeconds = Math.floor(Date.now() / 1000)
+    const fillDuration = parseInt(formData.context?.fillExpires || '180')
+    const claimDuration = parseInt(formData.context?.claimExpires || '540')
+
+    const fillExpiryTimestamp = (nowInSeconds + fillDuration).toString()
+    const claimExpiryTimestamp = (nowInSeconds + claimDuration).toString()
+
+    // Create a new request object with calculated timestamps
+    const requestData = {
+      ...formData,
+      context: {
+        ...formData.context,
+        fillExpires: fillExpiryTimestamp,
+        claimExpires: claimExpiryTimestamp,
+      },
+    }
+
+    quoteMutation.mutate(requestData)
   }
 
   const isFormValid = () => {
@@ -420,24 +442,45 @@ function QuoteForm() {
               />
             </div>
           </div>
-          <div className="mt-2">
-            <label className="block text-sm font-medium text-gray-700">
-              Expires
-            </label>
-            <input
-              type="text"
-              value={formData.context?.expires}
-              onChange={e =>
-                setFormData({
-                  ...formData,
-                  context: {
-                    ...formData.context!,
-                    expires: e.target.value,
-                  },
-                })
-              }
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-            />
+          <div className="grid grid-cols-2 gap-4 mt-2">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Fill Duration (seconds)
+              </label>
+              <input
+                type="number"
+                value={formData.context?.fillExpires}
+                onChange={e =>
+                  setFormData({
+                    ...formData,
+                    context: {
+                      ...formData.context!,
+                      fillExpires: e.target.value,
+                    },
+                  })
+                }
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Claim Duration (seconds)
+              </label>
+              <input
+                type="number"
+                value={formData.context?.claimExpires}
+                onChange={e =>
+                  setFormData({
+                    ...formData,
+                    context: {
+                      ...formData.context!,
+                      claimExpires: e.target.value,
+                    },
+                  })
+                }
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              />
+            </div>
           </div>
         </div>
 
