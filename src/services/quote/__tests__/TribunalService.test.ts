@@ -11,6 +11,8 @@ process.env.OPTIMISM_RPC_URL =
   process.env.OPTIMISM_RPC_URL || 'https://optimism.llamarpc.com'
 process.env.BASE_RPC_URL =
   process.env.BASE_RPC_URL || 'https://base.llamarpc.com'
+process.env.UNICHAIN_RPC_URL =
+  process.env.UNICHAIN_RPC_URL || 'https://mainnet.unichain.org'
 
 describe('TribunalService', () => {
   let tribunalService: TribunalService
@@ -21,7 +23,7 @@ describe('TribunalService', () => {
 
   describe('verifyMandateHash', () => {
     it('should correctly calculate and verify mandate hash', async () => {
-      // Test values for Optimism (chainId 10)
+      // Test values for Optimism (chainId 10) with new tribunal address
       const mandate = {
         recipient: '0x1234567890123456789012345678901234567890',
         expires: BigInt('1735686000'), // Jan 1, 2025

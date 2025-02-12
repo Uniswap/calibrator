@@ -8,16 +8,22 @@ const TRIBUNAL_ABI = [
       {
         components: [
           { name: 'chainId', type: 'uint256' },
-          { name: 'arbiter', type: 'address' },
-          { name: 'sponsor', type: 'address' },
-          { name: 'nonce', type: 'uint256' },
-          { name: 'expires', type: 'uint256' },
-          { name: 'id', type: 'uint256' },
-          { name: 'maximumAmount', type: 'uint256' },
+          {
+            components: [
+              { name: 'arbiter', type: 'address' },
+              { name: 'sponsor', type: 'address' },
+              { name: 'nonce', type: 'uint256' },
+              { name: 'expires', type: 'uint256' },
+              { name: 'id', type: 'uint256' },
+              { name: 'amount', type: 'uint256' },
+            ],
+            name: 'compact',
+            type: 'tuple',
+          },
           { name: 'sponsorSignature', type: 'bytes' },
           { name: 'allocatorSignature', type: 'bytes' },
         ],
-        name: 'compact',
+        name: 'claim',
         type: 'tuple',
       },
       {
@@ -63,6 +69,7 @@ export class TribunalService {
   private ethereumClient: PublicClient
   private optimismClient: PublicClient
   private baseClient: PublicClient
+  private unichainClient: PublicClient
   private quoteConfigService: QuoteConfigurationService
 
   constructor() {
@@ -78,10 +85,12 @@ export class TribunalService {
     const ethereumRpcUrl = process.env.ETHEREUM_RPC_URL
     const optimismRpcUrl = process.env.OPTIMISM_RPC_URL
     const baseRpcUrl = process.env.BASE_RPC_URL
+    const unichainRpcUrl = process.env.UNICHAIN_RPC_URL
 
     if (!ethereumRpcUrl) throw new Error('ETHEREUM_RPC_URL is required')
     if (!optimismRpcUrl) throw new Error('OPTIMISM_RPC_URL is required')
     if (!baseRpcUrl) throw new Error('BASE_RPC_URL is required')
+    if (!unichainRpcUrl) throw new Error('UNICHAIN_RPC_URL is required')
 
     this.ethereumClient = createPublicClient({
       ...commonConfig,
@@ -101,6 +110,25 @@ export class TribunalService {
       transport: http(baseRpcUrl),
     }) as PublicClient
 
+    this.unichainClient = createPublicClient({
+      ...commonConfig,
+      chain: {
+        id: 130,
+        name: 'Unichain',
+        network: 'unichain',
+        nativeCurrency: {
+          decimals: 18,
+          name: 'Ether',
+          symbol: 'ETH',
+        },
+        rpcUrls: {
+          default: { http: [unichainRpcUrl] },
+          public: { http: [unichainRpcUrl] },
+        },
+      },
+      transport: http(unichainRpcUrl),
+    }) as PublicClient
+
     // Initialize QuoteConfigurationService
     this.quoteConfigService = new QuoteConfigurationService({})
   }
@@ -113,6 +141,8 @@ export class TribunalService {
         return this.optimismClient
       case 8453:
         return this.baseClient
+      case 130:
+        return this.unichainClient
       default:
         throw new Error(`Unsupported chain ID: ${chainId}`)
     }
@@ -121,26 +151,28 @@ export class TribunalService {
   private getTribunalAddress(chainId: number): `0x${string}` {
     switch (chainId) {
       case 1:
-        return '0x6d72dB874D4588931Ffe2Fc0b75c687328a86662'
+        return '0xB74e28F61EE4CF7C1Fd5eCB68ee3A5a60f0Ce456'
       case 10:
-        return '0xf4eA570740Ce552632F19c8E92691c6A5F6374D9'
+        return '0xb7dD9E63A0d594C6e58c84bB85660819B7941770'
       case 8453:
-        return '0x339B234fdBa8C5C77c43AA01a6ad38071B7984F1'
+        return '0xC0AdfB14A08c5A3f0d6c21cFa601b43bA93B3c8A'
+      case 130:
+        return '0x7f268357A8c2552623316e2562D90e642bB538E5'
       default:
         throw new Error(`No tribunal address for chain ID: ${chainId}`)
     }
   }
 
   async getQuote(
+    chainId: number,
     arbiter: string,
     sponsor: string,
     nonce: bigint,
     expires: bigint,
     id: bigint,
-    maximumAmount: bigint,
-    chainId: number,
-    claimant: string,
-    claimAmount: bigint,
+    amount: bigint,
+    sponsorSignature: string,
+    allocatorSignature: string,
     mandate: {
       recipient: string
       expires: bigint
@@ -150,15 +182,12 @@ export class TribunalService {
       scalingFactor: bigint
       salt: string
     },
+    claimant: string,
     targetChainId: number
   ): Promise<bigint> {
     try {
       const client = this.getClientForChain(targetChainId)
       const tribunalAddress = this.getTribunalAddress(targetChainId)
-
-      // Use the same dummy signature for both allocator and sponsor
-      const dummySignature =
-        '0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000'
 
       // Call the quote function on the tribunal contract
       const { result: dispensation } = await client.simulateContract({
@@ -167,15 +196,17 @@ export class TribunalService {
         functionName: 'quote',
         args: [
           {
-            chainId: chainId,
-            arbiter: arbiter as `0x${string}`,
-            sponsor: sponsor as `0x${string}`,
-            nonce,
-            expires,
-            id,
-            maximumAmount,
-            sponsorSignature: dummySignature as `0x${string}`,
-            allocatorSignature: dummySignature as `0x${string}`,
+            chainId,
+            compact: {
+              arbiter: arbiter as `0x${string}`,
+              sponsor: sponsor as `0x${string}`,
+              nonce,
+              expires,
+              id,
+              amount,
+            },
+            sponsorSignature: sponsorSignature as `0x${string}`,
+            allocatorSignature: allocatorSignature as `0x${string}`,
           },
           {
             recipient: mandate.recipient as `0x${string}`,
@@ -199,13 +230,17 @@ export class TribunalService {
             functionName: 'quote',
             args: [
               {
-                chainId: BigInt(chainId),
-                arbiter: arbiter as `0x${string}`,
-                sponsor: sponsor as `0x${string}`,
-                nonce,
-                expires,
-                id,
-                maximumAmount,
+                chainId,
+                compact: {
+                  arbiter: arbiter as `0x${string}`,
+                  sponsor: sponsor as `0x${string}`,
+                  nonce,
+                  expires,
+                  id,
+                  amount,
+                },
+                sponsorSignature,
+                allocatorSignature,
               },
               {
                 recipient: mandate.recipient as `0x${string}`,
