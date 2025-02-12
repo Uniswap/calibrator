@@ -14,6 +14,7 @@ const CHAIN_TO_PLATFORM: Record<
 > = {
   1: { platform: 'ethereum', nativeToken: 'ethereum' },
   10: { platform: 'optimistic-ethereum', nativeToken: 'ethereum' },
+  130: { platform: 'unichain', nativeToken: 'ethereum' },
   8453: { platform: 'base', nativeToken: 'ethereum' },
   // Add more chains as needed
 }
