@@ -191,14 +191,14 @@ describe('Quote Routes', () => {
       // Verify data and context structure
       expect(result.data).toBeDefined()
       expect(result.data.arbiter).toBe(
-        '0xf4eA570740Ce552632F19c8E92691c6A5F6374D9'
+        '0xb7dD9E63A0d594C6e58c84bB85660819B7941770'
       )
       expect(result.data.mandate).toBeDefined()
 
       const mandate = result.data.mandate
       expect(mandate.chainId).toBe(mockQuote.outputTokenChainId)
       expect(mandate.tribunal).toBe(
-        '0x339B234fdBa8C5C77c43AA01a6ad38071B7984F1'
+        '0xC0AdfB14A08c5A3f0d6c21cFa601b43bA93B3c8A'
       )
 
       expect(mandate.minimumAmount).toBe('990000000000000000')

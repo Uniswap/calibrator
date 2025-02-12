@@ -60,7 +60,7 @@ describe('QuoteConfigurationService', () => {
 
       // Verify the compact data
       expect(result.data.arbiter).toBe(
-        '0xf4eA570740Ce552632F19c8E92691c6A5F6374D9'
+        '0xb7dD9E63A0d594C6e58c84bB85660819B7941770'
       )
       expect(result.data.sponsor).toBe(mockSponsor)
       expect(result.data.nonce).toBeNull()
@@ -75,7 +75,7 @@ describe('QuoteConfigurationService', () => {
       const mandate = result.data.mandate as unknown as MandateData
       expect(mandate.chainId).toBe(mockQuote.outputTokenChainId)
       expect(mandate.tribunal).toBe(
-        '0x339B234fdBa8C5C77c43AA01a6ad38071B7984F1'
+        '0xC0AdfB14A08c5A3f0d6c21cFa601b43bA93B3c8A'
       )
       expect(mandate.recipient).toBe(mockContext.recipient)
       expect(mandate.expires.toString()).toBe(mockContext.expires.toString())
@@ -330,7 +330,7 @@ describe('QuoteConfigurationService', () => {
       }
 
       const chainId = 10
-      const tribunalAddress = '0xf4eA570740Ce552632F19c8E92691c6A5F6374D9' // Optimism Tribunal
+      const tribunalAddress = '0xb7dD9E63A0d594C6e58c84bB85660819B7941770' // Optimism Tribunal
 
       // Use type assertion to access private method
       const witnessHash = (hashService as any).generateWitnessHash(
@@ -365,7 +365,7 @@ describe('QuoteConfigurationService', () => {
       }
 
       const chainId = 10
-      const tribunalAddress = '0xf4eA570740Ce552632F19c8E92691c6A5F6374D9' // Optimism Tribunal
+      const tribunalAddress = '0xb7dD9E63A0d594C6e58c84bB85660819B7941770' // Optimism Tribunal
 
       // Generate hash
       const mandateHash = hashService.deriveMandateHash(
