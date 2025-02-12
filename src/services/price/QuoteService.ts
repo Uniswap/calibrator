@@ -368,59 +368,36 @@ export class QuoteService {
       }
 
       // Get initial tribunal quote using initial quote amount
-      const initialDispensation = await tribunalServiceAny.getQuote(
+      const initialDispensation = await tribunalService.getQuote(
+        inputTokenChainId,
         arbiterMapping[`${inputTokenChainId}-${outputTokenChainId}`]?.address ||
           '0x0000000000000000000000000000000000000000',
-        context?.recipient ||
-          sponsor ||
-          '0x0000000000000000000000000000000000000000',
-        process.env.NODE_ENV === 'test' ? '0' : 0n,
-        process.env.NODE_ENV === 'test'
-          ? expiresValue.toString()
-          : BigInt(expiresValue),
-        process.env.NODE_ENV === 'test'
-          ? (lockParameters?.allocatorId || '0').toString()
-          : BigInt(lockParameters?.allocatorId || '0'),
-        process.env.NODE_ENV === 'test'
-          ? ethQuoteAmount
-          : BigInt(ethQuoteAmount),
-        inputTokenChainId,
-        context?.recipient ||
-          sponsor ||
-          '0x0000000000000000000000000000000000000000',
-        process.env.NODE_ENV === 'test'
-          ? ethQuoteAmount
-          : BigInt(ethQuoteAmount),
+        sponsor || '0x0000000000000000000000000000000000000000',
+        0n,
+        BigInt(expiresValue),
+        BigInt(lockParameters?.allocatorId?.toString() || '0'),
+        BigInt(ethQuoteAmount),
+        '0x11111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111',
+        '0x22222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222',
         {
           recipient:
             context?.recipient ||
             sponsor ||
             '0x0000000000000000000000000000000000000000',
-          expires:
-            process.env.NODE_ENV === 'test'
-              ? expiresValue.toString()
-              : BigInt(expiresValue),
+          expires: process.env.NODE_ENV === 'test' 
+            ? expiresValue.toString() 
+            : BigInt(expiresValue),
           token: outputTokenAddress as `0x${string}`,
-          minimumAmount:
-            process.env.NODE_ENV === 'test'
-              ? (
-                  (BigInt(quoteOutputAmountDirect || '0') *
-                    BigInt(10000 - (context?.slippageBips || 100))) /
-                  10000n
-                ).toString()
-              : (BigInt(quoteOutputAmountDirect || '0') *
-                  BigInt(10000 - (context?.slippageBips || 100))) /
-                10000n,
-          baselinePriorityFee:
-            process.env.NODE_ENV === 'test'
-              ? context?.baselinePriorityFee || '0'
-              : BigInt(context?.baselinePriorityFee || '0'),
-          scalingFactor:
-            process.env.NODE_ENV === 'test'
-              ? context?.scalingFactor || '1000000000100000000'
-              : BigInt(context?.scalingFactor || '1000000000100000000'),
+          minimumAmount: BigInt(quoteOutputAmountDirect || '0') *
+            BigInt(10000 - (context?.slippageBips || 100)) /
+            10000n,
+          baselinePriorityFee: BigInt(context?.baselinePriorityFee?.toString() || '0'),
+          scalingFactor: BigInt(context?.scalingFactor?.toString() || '1000000000100000000'),
           salt: `0x${crypto.randomBytes(32).toString('hex')}`,
         },
+        context?.recipient ||
+          sponsor ||
+          '0x0000000000000000000000000000000000000000',
         outputTokenChainId
       )
 
@@ -447,59 +424,34 @@ export class QuoteService {
         }
 
         // Keep original dispensation amount even if it exceeds available amount
-        const dispensation = await tribunalServiceAny.getQuote(
+        const dispensation = await tribunalService.getQuote(
+          inputTokenChainId,
           arbiterMapping[`${inputTokenChainId}-${outputTokenChainId}`]
             ?.address || '0x0000000000000000000000000000000000000000',
-          context?.recipient ||
-            sponsor ||
-            '0x0000000000000000000000000000000000000000',
-          process.env.NODE_ENV === 'test' ? '0' : 0n,
-          process.env.NODE_ENV === 'test'
-            ? expiresValue.toString()
-            : BigInt(expiresValue),
-          process.env.NODE_ENV === 'test'
-            ? (lockParameters?.allocatorId || '0').toString()
-            : BigInt(lockParameters?.allocatorId || '0'),
-          process.env.NODE_ENV === 'test'
-            ? netEthAmount.toString()
-            : netEthAmount,
-          inputTokenChainId,
-          context?.recipient ||
-            sponsor ||
-            '0x0000000000000000000000000000000000000000',
-          process.env.NODE_ENV === 'test'
-            ? netEthAmount.toString()
-            : netEthAmount,
+          sponsor || '0x0000000000000000000000000000000000000000',
+          0n,
+          BigInt(expiresValue),
+          BigInt(lockParameters?.allocatorId?.toString() || '0'),
+          netEthAmount,
+          '0x11111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111',
+          '0x22222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222',
           {
             recipient:
               context?.recipient ||
               sponsor ||
               '0x0000000000000000000000000000000000000000',
-            expires:
-              process.env.NODE_ENV === 'test'
-                ? expiresValue.toString()
-                : BigInt(expiresValue),
+            expires: BigInt(expiresValue),
             token: outputTokenAddress as `0x${string}`,
-            minimumAmount:
-              process.env.NODE_ENV === 'test'
-                ? (
-                    (BigInt(quoteOutputAmountNet || '0') *
-                      BigInt(10000 - (context?.slippageBips || 100))) /
-                    10000n
-                  ).toString()
-                : (BigInt(quoteOutputAmountNet || '0') *
-                    BigInt(10000 - (context?.slippageBips || 100))) /
-                  10000n,
-            baselinePriorityFee:
-              process.env.NODE_ENV === 'test'
-                ? context?.baselinePriorityFee || '0'
-                : BigInt(context?.baselinePriorityFee || '0'),
-            scalingFactor:
-              process.env.NODE_ENV === 'test'
-                ? context?.scalingFactor || '1000000000100000000'
-                : BigInt(context?.scalingFactor || '1000000000100000000'),
+            minimumAmount: BigInt(quoteOutputAmountNet || '0') *
+            BigInt(10000 - (context?.slippageBips || 100)) /
+            10000n,
+            baselinePriorityFee: BigInt(context?.baselinePriorityFee?.toString() || '0'),
+            scalingFactor: BigInt(context?.scalingFactor?.toString() || '1000000000100000000'),
             salt: `0x${crypto.randomBytes(32).toString('hex')}`,
           },
+          context?.recipient ||
+            sponsor ||
+            '0x0000000000000000000000000000000000000000',
           outputTokenChainId
         )
 
@@ -592,7 +544,9 @@ export class QuoteService {
       this.logger.info(`Uniswap quote amount (net): ${quoteOutputAmountNet}`)
       this.logger.info(`Calculated delta: ${deltaAmount}`)
     } catch (error) {
-      this.logger.error(`Error getting quote with dispensation: ${error}`)
+      // Convert any BigInt values in the error to strings for logging
+      const errorString = error instanceof Error ? error.message : String(error)
+      this.logger.error(`Error getting quote with dispensation: ${errorString}`)
     }
 
     return {
