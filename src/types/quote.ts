@@ -40,7 +40,8 @@ export interface QuoteContext {
   recipient?: string
   baselinePriorityFee?: string
   scalingFactor?: string
-  expires?: string
+  fillExpires?: string
+  claimExpires?: string
   [key: string]: unknown
 }
 

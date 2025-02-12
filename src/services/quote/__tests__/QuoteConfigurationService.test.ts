@@ -43,7 +43,8 @@ describe('QuoteConfigurationService', () => {
   const mockContext: Required<QuoteContext> = {
     slippageBips: 50,
     recipient: '0x7777777777777777777777777777777777777777',
-    expires: '1703023200', // 2023-12-20T00:00:00Z
+    fillExpires: '1703023200', // 2023-12-20T00:00:00Z
+    claimExpires: '1703026800', // 2023-12-20T01:00:00Z (1 hour after fillExpires)
     baselinePriorityFee: '2000000000',
     scalingFactor: '1000000000200000000',
   }
@@ -64,8 +65,9 @@ describe('QuoteConfigurationService', () => {
       )
       expect(result.data.sponsor).toBe(mockSponsor)
       expect(result.data.nonce).toBeNull()
+      // Verify compact uses claimExpires
       expect(result.data.expires.toString()).toBe(
-        mockContext.expires.toString()
+        mockContext.claimExpires.toString()
       )
       expect(result.data.amount.toString()).toBe(
         mockQuote.inputTokenAmount.toString()
@@ -78,7 +80,10 @@ describe('QuoteConfigurationService', () => {
         '0xC0AdfB14A08c5A3f0d6c21cFa601b43bA93B3c8A'
       )
       expect(mandate.recipient).toBe(mockContext.recipient)
-      expect(mandate.expires.toString()).toBe(mockContext.expires.toString())
+      // Verify mandate uses fillExpires
+      expect(mandate.expires.toString()).toBe(
+        mockContext.fillExpires.toString()
+      )
       expect(mandate.token).toBe(mockQuote.outputTokenAddress)
       expect(mandate.minimumAmount.toString()).toBe('895500000000000000') // 99.5% of output amount (50 bips slippage)
       expect(mandate.baselinePriorityFee.toString()).toBe(
@@ -93,6 +98,23 @@ describe('QuoteConfigurationService', () => {
       expect(result.witnessHash).toMatch(/^0x[a-f0-9]{64}$/)
     })
 
+    it('should throw error when fillExpires is after claimExpires', async () => {
+      const invalidContext = {
+        ...mockContext,
+        fillExpires: '1703026800', // 2023-12-20T01:00:00Z
+        claimExpires: '1703023200', // 2023-12-20T00:00:00Z
+      }
+      await expect(
+        service.generateConfiguration(
+          mockQuote,
+          mockSponsor,
+          mockDuration,
+          mockLockParameters,
+          invalidContext
+        )
+      ).rejects.toThrow('fillExpires must be before claimExpires')
+    })
+
     it('should use default values when context is empty', async () => {
       const result = await service.generateConfiguration(
         mockQuote,
@@ -102,8 +124,15 @@ describe('QuoteConfigurationService', () => {
         {}
       )
 
+      // Verify mandate and compact data
       const mandate = result.data.mandate as unknown as MandateData
+      const now = Math.floor(Date.now() / 1000)
+      const defaultFillExpires = BigInt(now + mockDuration)
+      const defaultClaimExpires = defaultFillExpires + BigInt(300) // 5 minutes buffer
+
       expect(mandate.recipient).toBe(mockSponsor)
+      expect(BigInt(mandate.expires)).toBe(defaultFillExpires)
+      expect(result.data.expires).toBe(defaultClaimExpires)
       expect(mandate.minimumAmount.toString()).toBe('891000000000000000') // 99% of output amount (default 100 bips slippage)
       expect(mandate.baselinePriorityFee.toString()).toBe('0')
       expect(mandate.scalingFactor.toString()).toBe('1000000000100000000')

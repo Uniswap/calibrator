@@ -39,17 +39,32 @@ export class QuoteConfigurationService {
 
     // Calculate ID and expiration
     const id = this.calculateId(lockParameters, quote.inputTokenAddress)
-    const expires = context.expires
-      ? BigInt(context.expires)
-      : BigInt(Math.floor(Date.now() / 1000) + duration)
+    // Calculate expiry timestamps
+    const now = BigInt(Math.floor(Date.now() / 1000))
+    const fillExpires = context.fillExpires
+      ? BigInt(context.fillExpires)
+      : now + BigInt(duration)
+    const claimExpires = context.claimExpires
+      ? BigInt(context.claimExpires)
+      : fillExpires + BigInt(300) // 5 minutes of buffer
 
-    // Get witness data from resolver
+    // Ensure fillExpires comes before claimExpires
+    if (fillExpires >= claimExpires) {
+      throw new Error('fillExpires must be before claimExpires')
+    }
+
+    // Get witness data from resolver with complete context
+    const completeContext = {
+      ...context,
+      fillExpires: fillExpires.toString(),
+      claimExpires: claimExpires.toString(),
+    }
     const witness = arbiter.resolver(
       quote,
       sponsor,
       duration,
       lockParameters,
-      context
+      completeContext
     )
 
     // Parse witness type string to get variable name
@@ -81,7 +96,7 @@ export class QuoteConfigurationService {
         tribunal: arbiter.tribunal,
         sponsor,
         nonce: null,
-        expires,
+        expires: claimExpires,
         id,
         amount: BigInt(quote.inputTokenAmount),
         maximumAmount:

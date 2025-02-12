@@ -5,6 +5,21 @@ import { CoinGeckoProvider } from '../../services/price/providers/CoinGeckoProvi
 import { UniswapProvider } from '../../services/price/providers/UniswapProvider'
 import { PriceData } from '../../services/price/interfaces/IPriceProvider'
 import { Logger } from '../../utils/logger'
+import { TribunalService } from '../../services/quote/TribunalService'
+import { config } from 'dotenv'
+
+// Load environment variables from .env
+config()
+
+// Set up RPC URLs for tests if not already set
+process.env.ETHEREUM_RPC_URL =
+  process.env.ETHEREUM_RPC_URL || 'https://eth.llamarpc.com'
+process.env.OPTIMISM_RPC_URL =
+  process.env.OPTIMISM_RPC_URL || 'https://optimism.llamarpc.com'
+process.env.BASE_RPC_URL =
+  process.env.BASE_RPC_URL || 'https://base.llamarpc.com'
+process.env.UNICHAIN_RPC_URL =
+  process.env.UNICHAIN_RPC_URL || 'https://mainnet.unichain.org'
 
 // Mock the providers
 jest.mock('../../services/price/providers/CoinGeckoProvider')
@@ -106,11 +121,13 @@ describe('Quote Routes', () => {
       cacheDurationMs: 30000,
     })
 
-    // Create QuoteService with mock logger
+    // Create QuoteService with TribunalService
+    const tribunalService = new TribunalService()
     quoteService = new QuoteService(
       coinGeckoProvider,
       uniswapProvider,
-      mockLogger
+      tribunalService,
+      mockLogger // Pass mockLogger as the fourth parameter
     )
 
     // Initialize QuoteService before building app

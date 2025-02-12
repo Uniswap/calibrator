@@ -126,45 +126,59 @@ describe('QuoteService', () => {
       extend: jest.fn(),
     } as unknown as PublicClient
 
-    // Create a partial mock of TribunalService
-    const partialMock = {
-      getQuote: jest.fn(),
-      verifyMandateHash: jest.fn(),
+    // Create a complete mock of TribunalService
+    mockTribunalService = {
       ethereumClient: mockClient,
       optimismClient: mockClient,
       baseClient: mockClient,
+      unichainClient: mockClient,
       quoteConfigService: {} as QuoteConfigurationService,
-    }
-
-    // Add the mock methods with proper typing
-    const getClientForChain = (_chainId: number): PublicClient => mockClient
-    const getTribunalAddress = (chainId: number): `0x${string}` => {
-      const addresses: Record<number, `0x${string}`> = {
-        1: '0x6d72dB874D4588931Ffe2Fc0b75c687328a86662',
-        10: '0xf4eA570740Ce552632F19c8E92691c6A5F6374D9',
-        8453: '0x339B234fdBa8C5C77c43AA01a6ad38071B7984F1',
-      }
-      const address = addresses[chainId]
-      if (!address)
-        throw new Error(`No tribunal address for chain ID: ${chainId}`)
-      return address
-    }
-
-    // Create the full mock by combining the partial mock with the typed methods
-    mockTribunalService = {
-      ...partialMock,
-      getClientForChain,
-      getTribunalAddress,
+      getQuote: jest.fn(),
+      verifyMandateHash: jest.fn(),
+      getClientForChain: (_chainId: number): PublicClient => mockClient,
+      getTribunalAddress: (chainId: number): `0x${string}` => {
+        const addresses: Record<number, `0x${string}`> = {
+          1: '0x6d72dB874D4588931Ffe2Fc0b75c687328a86662',
+          10: '0xf4eA570740Ce552632F19c8E92691c6A5F6374D9',
+          8453: '0x339B234fdBa8C5C77c43AA01a6ad38071B7984F1',
+          130: '0x7f268357A8c2552623316e2562D90e642bB538E5',
+        }
+        const address = addresses[chainId]
+        if (!address)
+          throw new Error(`No tribunal address for chain ID: ${chainId}`)
+        return address
+      },
     } as unknown as jest.Mocked<TribunalService>
+
+    // Set up mock implementation for getQuote
+    mockTribunalService.getQuote.mockImplementation(
+      async (
+        _chainId: number,
+        _arbiter: string,
+        _sponsor: string,
+        _nonce: bigint,
+        _expires: bigint,
+        _id: bigint,
+        _amount: bigint,
+        _sponsorSignature: string,
+        _allocatorSignature: string,
+        _mandate: any,
+        _claimant: string,
+        _targetChainId: number
+      ) => {
+        return BigInt('50000000000000000') // 0.05 ETH
+      }
+    )
 
     jest
       .spyOn(await import('../../quote/TribunalService.js'), 'TribunalService')
       .mockImplementation(() => mockTribunalService)
 
-    // Create QuoteService instance
+    // Create QuoteService instance with mocked dependencies
     quoteService = new QuoteService(
       mockCoinGeckoProvider,
       mockUniswapProvider,
+      mockTribunalService,
       mockLogger
     )
   })
@@ -308,6 +322,7 @@ describe('QuoteService', () => {
         slippageBips: 50,
         recipient: '0x7777777777777777777777777777777777777777',
         expires: '1703023200', // 2023-12-20T00:00:00Z
+        fillExpires: '1703023200', // Required for tribunal quote
         baselinePriorityFee: '2000000000',
         scalingFactor: '1000000000200000000',
       },

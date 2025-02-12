@@ -8,6 +8,7 @@ import { QuoteService } from './services/price/QuoteService.js'
 import { quoteRoutes } from './routes/quote.js'
 import { healthRoutes } from './routes/health.js'
 import { Logger } from './utils/logger.js'
+import { TribunalService } from './services/quote/TribunalService.js'
 
 interface BuildOptions {
   coinGeckoProvider?: CoinGeckoProvider
@@ -60,13 +61,12 @@ export async function build(
     })
 
   // Initialize QuoteService
+  // Initialize TribunalService
+  const tribunalService = new TribunalService()
+
   const quoteService =
     options.quoteService ||
-    new QuoteService(
-      coinGeckoProvider,
-      uniswapProvider,
-      new Logger('QuoteService')
-    )
+    new QuoteService(coinGeckoProvider, uniswapProvider, tribunalService)
 
   if (!options.quoteService) {
     await quoteService.initialize()

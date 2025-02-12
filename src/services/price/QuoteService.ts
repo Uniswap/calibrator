@@ -35,6 +35,7 @@ interface CoinGeckoAssetPlatform {
 export class QuoteService {
   private coinGeckoProvider: CoinGeckoProvider
   private uniswapProvider: UniswapProvider
+  private tribunalService: TribunalService
   private logger: Logger
   private tokenInfoCache: Map<string, TokenInfo>
   private chainMapping: ChainMapping = {}
@@ -43,10 +44,12 @@ export class QuoteService {
   constructor(
     coinGeckoProvider: CoinGeckoProvider,
     uniswapProvider: UniswapProvider,
+    tribunalService: TribunalService,
     logger: Logger = new Logger('QuoteService')
   ) {
     this.coinGeckoProvider = coinGeckoProvider
     this.uniswapProvider = uniswapProvider
+    this.tribunalService = tribunalService
     this.logger = logger
     this.tokenInfoCache = new Map()
   }
@@ -333,17 +336,17 @@ export class QuoteService {
       // Try to get tribunal quote if needed
       this.logger.info('Starting tribunal quote calculation')
       this.logger.info(`Output token decimals: ${outputToken.decimals}`)
-
-      const tribunalService = new TribunalService()
-      const expiresValue =
-        context?.expires || Math.floor(Date.now() / 1000) + 3600
+      if (!context?.fillExpires) {
+        throw new Error('fillExpires is required in context')
+      }
+      const expiresValue = context.fillExpires
 
       this.logger.info(
         `Initial quote amount before tribunal: ${ethQuoteAmount}`
       )
 
       // Get initial tribunal quote using initial quote amount
-      const initialDispensation = await tribunalService.getQuote(
+      const initialDispensation = await this.tribunalService.getQuote(
         inputTokenChainId,
         arbiterMapping[`${inputTokenChainId}-${outputTokenChainId}`]?.address ||
           '0x0000000000000000000000000000000000000000',
@@ -359,7 +362,7 @@ export class QuoteService {
             context?.recipient ||
             sponsor ||
             '0x0000000000000000000000000000000000000000',
-          expires: BigInt(expiresValue),
+          expires: BigInt(context.fillExpires),
           token: outputTokenAddress as `0x${string}`,
           minimumAmount:
             (BigInt(quoteOutputAmountDirect || '0') *
@@ -402,7 +405,7 @@ export class QuoteService {
         }
 
         // Keep original dispensation amount even if it exceeds available amount
-        const dispensation = await tribunalService.getQuote(
+        const dispensation = await this.tribunalService.getQuote(
           inputTokenChainId,
           arbiterMapping[`${inputTokenChainId}-${outputTokenChainId}`]
             ?.address || '0x0000000000000000000000000000000000000000',
@@ -418,7 +421,7 @@ export class QuoteService {
               context?.recipient ||
               sponsor ||
               '0x0000000000000000000000000000000000000000',
-            expires: BigInt(expiresValue),
+            expires: BigInt(context.fillExpires),
             token: outputTokenAddress as `0x${string}`,
             minimumAmount:
               (BigInt(quoteOutputAmountNet || '0') *

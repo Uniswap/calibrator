@@ -1,5 +1,19 @@
 import { FastifyInstance } from 'fastify'
 import { build } from '../app.js'
+import { config } from 'dotenv'
+
+// Load environment variables from .env
+config()
+
+// Set up RPC URLs for tests if not already set
+process.env.ETHEREUM_RPC_URL =
+  process.env.ETHEREUM_RPC_URL || 'https://eth.llamarpc.com'
+process.env.OPTIMISM_RPC_URL =
+  process.env.OPTIMISM_RPC_URL || 'https://optimism.llamarpc.com'
+process.env.BASE_RPC_URL =
+  process.env.BASE_RPC_URL || 'https://base.llamarpc.com'
+process.env.UNICHAIN_RPC_URL =
+  process.env.UNICHAIN_RPC_URL || 'https://mainnet.unichain.org'
 
 // Mock fetch for asset platforms
 const mockFetch = jest.fn()

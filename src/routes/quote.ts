@@ -37,7 +37,8 @@ const QuoteRequestSchema = Type.Object({
       recipient: Type.Optional(Type.String()),
       baselinePriorityFee: Type.Optional(Type.String()),
       scalingFactor: Type.Optional(Type.String()),
-      expires: Type.Optional(Type.String()),
+      fillExpires: Type.Optional(Type.String()),
+      claimExpires: Type.Optional(Type.String()),
     })
   ),
 })
@@ -112,7 +113,8 @@ export async function quoteRoutes(
                 recipient: request.body.context.recipient,
                 baselinePriorityFee: request.body.context.baselinePriorityFee,
                 scalingFactor: request.body.context.scalingFactor,
-                expires: request.body.context.expires,
+                fillExpires: request.body.context.fillExpires,
+                claimExpires: request.body.context.claimExpires,
               }
             : undefined,
         }
@@ -158,7 +160,8 @@ export async function quoteRoutes(
               recipient: undefined,
               baselinePriorityFee: undefined,
               scalingFactor: undefined,
-              expires: undefined,
+              fillExpires: undefined,
+              claimExpires: undefined,
             }
           )
 

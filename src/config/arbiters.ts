@@ -15,9 +15,7 @@ const resolverTemplate = (
   chainId: quote.outputTokenChainId,
   tribunal,
   recipient: context.recipient || sponsor,
-  expires: context.expires
-    ? BigInt(context.expires)
-    : BigInt(Math.floor(Date.now() / 1000) + duration),
+  expires: BigInt(context.fillExpires!),
   token: quote.outputTokenAddress,
   minimumAmount:
     quote.outputAmountNet === null
