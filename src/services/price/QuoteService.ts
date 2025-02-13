@@ -336,6 +336,22 @@ export class QuoteService {
       // Try to get tribunal quote if needed
       this.logger.info('Starting tribunal quote calculation')
       this.logger.info(`Output token decimals: ${outputToken.decimals}`)
+
+      // Debug logging for chain IDs and arbiter lookup
+      const arbiterKey = `${inputTokenChainId}-${outputTokenChainId}`
+      const arbiterConfig = arbiterMapping[arbiterKey]
+      this.logger.info(`Looking up arbiter with key: ${arbiterKey}`)
+      this.logger.info(
+        `Found arbiter config: ${JSON.stringify(
+          {
+            key: arbiterKey,
+            address: arbiterConfig?.address || '0x0',
+            tribunal: arbiterConfig?.tribunal || '0x0',
+          },
+          null,
+          2
+        )}`
+      )
       if (!context?.fillExpires) {
         throw new Error('fillExpires is required in context')
       }

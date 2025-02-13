@@ -1,6 +1,7 @@
 import { createPublicClient, http, PublicClient } from 'viem'
 import { mainnet, optimism, base } from 'viem/chains'
 import { QuoteConfigurationService } from './QuoteConfigurationService.js'
+import { arbiterMapping } from '../../config/arbiters.js'
 
 const TRIBUNAL_ABI = [
   {
@@ -129,8 +130,8 @@ export class TribunalService {
       transport: http(unichainRpcUrl),
     }) as PublicClient
 
-    // Initialize QuoteConfigurationService
-    this.quoteConfigService = new QuoteConfigurationService({})
+    // Initialize QuoteConfigurationService with arbiter mapping
+    this.quoteConfigService = new QuoteConfigurationService(arbiterMapping)
   }
 
   private getClientForChain(chainId: number): PublicClient {
@@ -189,11 +190,23 @@ export class TribunalService {
       const client = this.getClientForChain(targetChainId)
       const tribunalAddress = this.getTribunalAddress(targetChainId)
 
+      // Get current base fee for Base chain
+      let simulateOptions = {}
+      if (targetChainId === 8453) {
+        const block = await client.getBlock()
+        const baseFee = block.baseFeePerGas || 1000000000n
+        simulateOptions = {
+          gas: 10000000n,
+          gasPrice: baseFee * 2n,
+        }
+      }
+
       // Call the quote function on the tribunal contract
       const { result: dispensation } = await client.simulateContract({
         address: tribunalAddress,
         abi: TRIBUNAL_ABI,
         functionName: 'quote',
+        ...simulateOptions,
         args: [
           {
             chainId,
