@@ -152,13 +152,13 @@ export class TribunalService {
   private getTribunalAddress(chainId: number): `0x${string}` {
     switch (chainId) {
       case 1:
-        return '0xB74e28F61EE4CF7C1Fd5eCB68ee3A5a60f0Ce456'
+        return '0xDfd41e6E2e08e752f464084F5C11619A3c950237'
       case 10:
-        return '0xb7dD9E63A0d594C6e58c84bB85660819B7941770'
+        return '0x2602D9f66ec17F2dc770063F7B91821DD741F626'
       case 8453:
-        return '0xC0AdfB14A08c5A3f0d6c21cFa601b43bA93B3c8A'
+        return '0xfaBE453252ca8337b091ba01BB168030E2FE6c1F'
       case 130:
-        return '0x7f268357A8c2552623316e2562D90e642bB538E5'
+        return '0x81fC1d90C5fae0f15FC91B5592177B594011C576'
       default:
         throw new Error(`No tribunal address for chain ID: ${chainId}`)
     }

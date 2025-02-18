@@ -35,8 +35,8 @@ const resolverTemplate = (
 export const arbiterMapping: ArbiterMapping = {
   // Optimism -> Base
   '10-8453': {
-    address: '0xb7dD9E63A0d594C6e58c84bB85660819B7941770',
-    tribunal: '0xC0AdfB14A08c5A3f0d6c21cFa601b43bA93B3c8A',
+    address: '0x2602D9f66ec17F2dc770063F7B91821DD741F626',
+    tribunal: '0xfaBE453252ca8337b091ba01BB168030E2FE6c1F',
     witnessTypeString:
       'Mandate mandate)Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)',
     resolver: (quote, sponsor, duration, _lockParameters, context) =>
@@ -45,13 +45,13 @@ export const arbiterMapping: ArbiterMapping = {
         sponsor,
         duration,
         context,
-        '0xC0AdfB14A08c5A3f0d6c21cFa601b43bA93B3c8A'
+        '0xfaBE453252ca8337b091ba01BB168030E2FE6c1F'
       ),
   },
   // Base -> Optimism
   '8453-10': {
-    address: '0xC0AdfB14A08c5A3f0d6c21cFa601b43bA93B3c8A',
-    tribunal: '0xb7dD9E63A0d594C6e58c84bB85660819B7941770',
+    address: '0xfaBE453252ca8337b091ba01BB168030E2FE6c1F',
+    tribunal: '0x2602D9f66ec17F2dc770063F7B91821DD741F626',
     witnessTypeString:
       'Mandate mandate)Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)',
     resolver: (quote, sponsor, duration, _lockParameters, context) =>
@@ -60,13 +60,13 @@ export const arbiterMapping: ArbiterMapping = {
         sponsor,
         duration,
         context,
-        '0xb7dD9E63A0d594C6e58c84bB85660819B7941770'
+        '0x2602D9f66ec17F2dc770063F7B91821DD741F626'
       ),
   },
   // Ethereum -> Optimism
   '1-10': {
-    address: '0xB74e28F61EE4CF7C1Fd5eCB68ee3A5a60f0Ce456',
-    tribunal: '0xb7dD9E63A0d594C6e58c84bB85660819B7941770',
+    address: '0xDfd41e6E2e08e752f464084F5C11619A3c950237',
+    tribunal: '0x2602D9f66ec17F2dc770063F7B91821DD741F626',
     witnessTypeString:
       'Mandate mandate)Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)',
     resolver: (quote, sponsor, duration, _lockParameters, context) =>
@@ -75,13 +75,13 @@ export const arbiterMapping: ArbiterMapping = {
         sponsor,
         duration,
         context,
-        '0xb7dD9E63A0d594C6e58c84bB85660819B7941770'
+        '0x2602D9f66ec17F2dc770063F7B91821DD741F626'
       ),
   },
   // Optimism -> Ethereum
   '10-1': {
-    address: '0xb7dD9E63A0d594C6e58c84bB85660819B7941770',
-    tribunal: '0xB74e28F61EE4CF7C1Fd5eCB68ee3A5a60f0Ce456',
+    address: '0x2602D9f66ec17F2dc770063F7B91821DD741F626',
+    tribunal: '0xDfd41e6E2e08e752f464084F5C11619A3c950237',
     witnessTypeString:
       'Mandate mandate)Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)',
     resolver: (quote, sponsor, duration, _lockParameters, context) =>
@@ -90,13 +90,13 @@ export const arbiterMapping: ArbiterMapping = {
         sponsor,
         duration,
         context,
-        '0xB74e28F61EE4CF7C1Fd5eCB68ee3A5a60f0Ce456'
+        '0xDfd41e6E2e08e752f464084F5C11619A3c950237'
       ),
   },
   // Base -> Ethereum
   '8453-1': {
-    address: '0xC0AdfB14A08c5A3f0d6c21cFa601b43bA93B3c8A',
-    tribunal: '0xB74e28F61EE4CF7C1Fd5eCB68ee3A5a60f0Ce456',
+    address: '0xfaBE453252ca8337b091ba01BB168030E2FE6c1F',
+    tribunal: '0xDfd41e6E2e08e752f464084F5C11619A3c950237',
     witnessTypeString:
       'Mandate mandate)Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)',
     resolver: (quote, sponsor, duration, _lockParameters, context) =>
@@ -105,13 +105,13 @@ export const arbiterMapping: ArbiterMapping = {
         sponsor,
         duration,
         context,
-        '0xB74e28F61EE4CF7C1Fd5eCB68ee3A5a60f0Ce456'
+        '0xDfd41e6E2e08e752f464084F5C11619A3c950237'
       ),
   },
   // Ethereum -> Base
   '1-8453': {
-    address: '0xB74e28F61EE4CF7C1Fd5eCB68ee3A5a60f0Ce456',
-    tribunal: '0xC0AdfB14A08c5A3f0d6c21cFa601b43bA93B3c8A',
+    address: '0xDfd41e6E2e08e752f464084F5C11619A3c950237',
+    tribunal: '0xfaBE453252ca8337b091ba01BB168030E2FE6c1F',
     witnessTypeString:
       'Mandate mandate)Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)',
     resolver: (quote, sponsor, duration, _lockParameters, context) =>
@@ -120,13 +120,13 @@ export const arbiterMapping: ArbiterMapping = {
         sponsor,
         duration,
         context,
-        '0xC0AdfB14A08c5A3f0d6c21cFa601b43bA93B3c8A'
+        '0xfaBE453252ca8337b091ba01BB168030E2FE6c1F'
       ),
   },
   // Unichain -> Ethereum
   '130-1': {
-    address: '0x7f268357A8c2552623316e2562D90e642bB538E5',
-    tribunal: '0xB74e28F61EE4CF7C1Fd5eCB68ee3A5a60f0Ce456',
+    address: '0x81fC1d90C5fae0f15FC91B5592177B594011C576',
+    tribunal: '0xDfd41e6E2e08e752f464084F5C11619A3c950237',
     witnessTypeString:
       'Mandate mandate)Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)',
     resolver: (quote, sponsor, duration, _lockParameters, context) =>
@@ -135,13 +135,13 @@ export const arbiterMapping: ArbiterMapping = {
         sponsor,
         duration,
         context,
-        '0xB74e28F61EE4CF7C1Fd5eCB68ee3A5a60f0Ce456'
+        '0xDfd41e6E2e08e752f464084F5C11619A3c950237'
       ),
   },
   // Ethereum -> Unichain
   '1-130': {
-    address: '0xB74e28F61EE4CF7C1Fd5eCB68ee3A5a60f0Ce456',
-    tribunal: '0x7f268357A8c2552623316e2562D90e642bB538E5',
+    address: '0xDfd41e6E2e08e752f464084F5C11619A3c950237',
+    tribunal: '0x81fC1d90C5fae0f15FC91B5592177B594011C576',
     witnessTypeString:
       'Mandate mandate)Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)',
     resolver: (quote, sponsor, duration, _lockParameters, context) =>
@@ -150,13 +150,13 @@ export const arbiterMapping: ArbiterMapping = {
         sponsor,
         duration,
         context,
-        '0x7f268357A8c2552623316e2562D90e642bB538E5'
+        '0x81fC1d90C5fae0f15FC91B5592177B594011C576'
       ),
   },
   // Unichain -> Base
   '130-8453': {
-    address: '0x7f268357A8c2552623316e2562D90e642bB538E5',
-    tribunal: '0xC0AdfB14A08c5A3f0d6c21cFa601b43bA93B3c8A',
+    address: '0x81fC1d90C5fae0f15FC91B5592177B594011C576',
+    tribunal: '0xfaBE453252ca8337b091ba01BB168030E2FE6c1F',
     witnessTypeString:
       'Mandate mandate)Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)',
     resolver: (quote, sponsor, duration, _lockParameters, context) =>
@@ -165,13 +165,13 @@ export const arbiterMapping: ArbiterMapping = {
         sponsor,
         duration,
         context,
-        '0xC0AdfB14A08c5A3f0d6c21cFa601b43bA93B3c8A'
+        '0xfaBE453252ca8337b091ba01BB168030E2FE6c1F'
       ),
   },
   // Base -> Unichain
   '8453-130': {
-    address: '0xC0AdfB14A08c5A3f0d6c21cFa601b43bA93B3c8A',
-    tribunal: '0x7f268357A8c2552623316e2562D90e642bB538E5',
+    address: '0xfaBE453252ca8337b091ba01BB168030E2FE6c1F',
+    tribunal: '0x81fC1d90C5fae0f15FC91B5592177B594011C576',
     witnessTypeString:
       'Mandate mandate)Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)',
     resolver: (quote, sponsor, duration, _lockParameters, context) =>
@@ -180,13 +180,13 @@ export const arbiterMapping: ArbiterMapping = {
         sponsor,
         duration,
         context,
-        '0x7f268357A8c2552623316e2562D90e642bB538E5'
+        '0x81fC1d90C5fae0f15FC91B5592177B594011C576'
       ),
   },
   // Unichain -> Optimism
   '130-10': {
-    address: '0x7f268357A8c2552623316e2562D90e642bB538E5',
-    tribunal: '0xb7dD9E63A0d594C6e58c84bB85660819B7941770',
+    address: '0x81fC1d90C5fae0f15FC91B5592177B594011C576',
+    tribunal: '0x2602D9f66ec17F2dc770063F7B91821DD741F626',
     witnessTypeString:
       'Mandate mandate)Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)',
     resolver: (quote, sponsor, duration, _lockParameters, context) =>
@@ -195,13 +195,13 @@ export const arbiterMapping: ArbiterMapping = {
         sponsor,
         duration,
         context,
-        '0xb7dD9E63A0d594C6e58c84bB85660819B7941770'
+        '0x2602D9f66ec17F2dc770063F7B91821DD741F626'
       ),
   },
   // Optimism -> Unichain
   '10-130': {
-    address: '0xb7dD9E63A0d594C6e58c84bB85660819B7941770',
-    tribunal: '0x7f268357A8c2552623316e2562D90e642bB538E5',
+    address: '0x2602D9f66ec17F2dc770063F7B91821DD741F626',
+    tribunal: '0x81fC1d90C5fae0f15FC91B5592177B594011C576',
     witnessTypeString:
       'Mandate mandate)Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)',
     resolver: (quote, sponsor, duration, _lockParameters, context) =>
@@ -210,7 +210,7 @@ export const arbiterMapping: ArbiterMapping = {
         sponsor,
         duration,
         context,
-        '0x7f268357A8c2552623316e2562D90e642bB538E5'
+        '0x81fC1d90C5fae0f15FC91B5592177B594011C576'
       ),
   },
 }
