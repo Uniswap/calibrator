@@ -141,7 +141,7 @@ describe('QuoteService', () => {
           1: '0x6d72dB874D4588931Ffe2Fc0b75c687328a86662',
           10: '0xf4eA570740Ce552632F19c8E92691c6A5F6374D9',
           8453: '0x339B234fdBa8C5C77c43AA01a6ad38071B7984F1',
-          130: '0x7f268357A8c2552623316e2562D90e642bB538E5',
+          130: '0x81fC1d90C5fae0f15FC91B5592177B594011C576',
         }
         const address = addresses[chainId]
         if (!address)
